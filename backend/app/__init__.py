@@ -1,0 +1,1 @@
+"""Kratzbaum - Plant Management System."""

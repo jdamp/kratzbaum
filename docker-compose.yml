@@ -1,0 +1,38 @@
+services:
+  api:
+    build: ./backend
+    container_name: kratzbaum-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://kratzbaum:kratzbaum@db:5432/kratzbaum
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - PLANTNET_API_KEY=${PLANTNET_API_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: kratzbaum-db
+    environment:
+      - POSTGRES_USER=kratzbaum
+      - POSTGRES_PASSWORD=kratzbaum
+      - POSTGRES_DB=kratzbaum
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kratzbaum"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads:
