@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Plant, PlantDetail, CareEvent, CareEventType } from './types';
+import type { Plant, PlantDetail, CareEvent, CareEventType, PlantCreate } from './types';
 
 export const plantService = {
 	getPlants: (params?: {
@@ -22,8 +22,15 @@ export const plantService = {
 		return apiClient.get<PlantDetail>(`/plants/${id}`);
 	},
 
-	createPlant: (data: FormData) => {
+	createPlant: (data: PlantCreate) => {
 		return apiClient.post<Plant>('/plants', data);
+	},
+
+	uploadPhoto: (plantId: string, file: File, isPrimary: boolean = false) => {
+		const formData = new FormData();
+		formData.append('file', file);
+		if (isPrimary) formData.append('is_primary', 'true');
+		return apiClient.post<{ id: string; url: string }>(`/plants/${plantId}/photos?is_primary=${isPrimary}`, formData);
 	},
 
 	updatePlant: (id: string, data: any) => {

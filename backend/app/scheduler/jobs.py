@@ -17,7 +17,7 @@ async def check_due_reminders() -> None:
     """
     async with async_session_factory() as session:
         # Get all enabled reminders that are due
-        now = datetime.now(UTC)
+        now = datetime.now(UTC).replace(tzinfo=None)
         result = await session.exec(
             select(Reminder).where(
                 Reminder.is_enabled,

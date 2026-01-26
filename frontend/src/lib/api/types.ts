@@ -34,6 +34,12 @@ export interface Plant {
 	updated_at: string;
 }
 
+export interface PlantCreate {
+	name: string;
+	species?: string;
+	pot_id?: UUID;
+}
+
 export interface PlantDetail extends Plant {
 	photos: PlantPhoto[];
 	reminders: Reminder[];

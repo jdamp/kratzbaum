@@ -47,19 +47,18 @@
 		error = null;
 
 		try {
-			const formData = new FormData();
-			formData.append('name', name.trim());
-			if (species.trim()) {
-				formData.append('species', species.trim());
-			}
-			if (potId) {
-				formData.append('pot_id', potId);
-			}
+			const plantData = {
+				name: name.trim(),
+				species: species.trim() || undefined,
+				pot_id: potId || undefined
+			};
+
+			const newPlant = await plantService.createPlant(plantData);
+
 			if (photos && photos[0]) {
-				formData.append('photos', photos[0]);
+				await plantService.uploadPhoto(newPlant.id, photos[0], true);
 			}
 
-			const newPlant = await plantService.createPlant(formData);
 			goto(`/plants/${newPlant.id}`);
 		} catch (err: any) {
 			error = err.message || 'Failed to create plant';
