@@ -62,7 +62,11 @@
 	{:else}
 		<div class="text-center py-20 px-4">
 			<p class="text-surface-500 mb-4">No plants found.</p>
-			<a href="/plants/new" class="btn variant-filled-primary">
+			<a
+				href="/plants/new"
+				data-sveltekit-reload
+				class="btn variant-filled-primary"
+			>
 				<Plus class="w-4 h-4 mr-2" />
 				Add Your First Plant
 			</a>
@@ -71,7 +75,8 @@
 
 	<!-- Floating Action Button -->
 	<a 
-		href="/plants/new" 
+		href="/plants/new"
+		data-sveltekit-reload
 		class="btn-icon btn-icon-lg variant-filled-primary fixed right-6 bottom-24 sm:bottom-6 shadow-xl z-20"
 	>
 		<Plus class="w-8 h-8" />
