@@ -28,7 +28,7 @@ node_modules
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
+/frontend/.svelte-kit
 /build
 
 # Vite
