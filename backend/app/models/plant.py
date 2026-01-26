@@ -2,8 +2,10 @@
 
 from datetime import UTC, datetime
 from enum import Enum
+from typing import Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy.orm import relationship as sa_relationship
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -28,7 +30,9 @@ class Plant(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Relationships
-    pot: "Pot | None" = Relationship(back_populates="plant")
+    pot: Optional["Pot"] = Relationship(
+        sa_relationship=sa_relationship("Pot", back_populates="plant")
+    )
     photos: list["PlantPhoto"] = Relationship(
         back_populates="plant",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},

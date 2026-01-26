@@ -1,6 +1,7 @@
 """Pot and PotPhoto models."""
 
 from datetime import UTC, datetime
+from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -23,7 +24,7 @@ class Pot(SQLModel, table=True):
         back_populates="pot",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
-    plant: "Plant | None" = Relationship(back_populates="pot")
+    plant: Optional["Plant"] = Relationship(back_populates="pot")
 
 
 class PotPhoto(SQLModel, table=True):

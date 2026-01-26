@@ -4,8 +4,7 @@ from datetime import UTC, datetime, time
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -36,7 +35,7 @@ class Reminder(SQLModel, table=True):
     frequency_type: FrequencyType
     frequency_value: int | None = Field(default=None)  # Days interval
     specific_days: list[int] | None = Field(
-        default=None, sa_column=Column(JSONB)
+        default=None, sa_column=Column(JSON)
     )  # Weekdays 0-6
     preferred_time: time
     is_enabled: bool = Field(default=True)

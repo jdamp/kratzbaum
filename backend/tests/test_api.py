@@ -85,7 +85,7 @@ class TestPlantEndpoints:
         """Test list plants requires auth."""
         response = await client.get("/api/plants")
 
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_list_plants_empty(self, client: AsyncClient, auth_headers: dict):
