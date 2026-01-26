@@ -1,6 +1,6 @@
 """Pot API endpoints."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, UploadFile, status
@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import select
 
 from app.api.deps import CurrentUser, DbSession
-from app.models import Pot, PotPhoto, Plant
+from app.models import Plant, Pot, PotPhoto
 from app.services.files import save_upload_file
 
 router = APIRouter(prefix="/pots", tags=["pots"])
@@ -71,9 +71,7 @@ async def list_pots(
     for pot in pots:
         # Get primary photo
         photo_result = await db.exec(
-            select(PotPhoto).where(
-                PotPhoto.pot_id == pot.id, PotPhoto.is_primary == True
-            )
+            select(PotPhoto).where(PotPhoto.pot_id == pot.id, PotPhoto.is_primary)
         )
         primary_photo = photo_result.first()
 
@@ -107,7 +105,7 @@ async def list_available_pots(
     """List pots not assigned to any plant."""
     # Get all pot IDs that are assigned to plants
     assigned_result = await db.exec(
-        select(Plant.pot_id).where(Plant.pot_id != None)
+        select(Plant.pot_id).where(Plant.pot_id.is_not(None))  # type: ignore
     )
     assigned_pot_ids = set(assigned_result.all())
 
@@ -121,9 +119,7 @@ async def list_available_pots(
             continue
 
         photo_result = await db.exec(
-            select(PotPhoto).where(
-                PotPhoto.pot_id == pot.id, PotPhoto.is_primary == True
-            )
+            select(PotPhoto).where(PotPhoto.pot_id == pot.id, PotPhoto.is_primary)
         )
         primary_photo = photo_result.first()
 
@@ -253,7 +249,7 @@ async def update_pot(
 
     # Get primary photo
     photo_result = await db.exec(
-        select(PotPhoto).where(PotPhoto.pot_id == pot.id, PotPhoto.is_primary == True)
+        select(PotPhoto).where(PotPhoto.pot_id == pot.id, PotPhoto.is_primary)
     )
     primary_photo = photo_result.first()
 
@@ -327,9 +323,7 @@ async def upload_photo(
 
     if is_primary:
         photos_result = await db.exec(
-            select(PotPhoto).where(
-                PotPhoto.pot_id == pot_id, PotPhoto.is_primary == True
-            )
+            select(PotPhoto).where(PotPhoto.pot_id == pot_id, PotPhoto.is_primary)
         )
         for photo in photos_result.all():
             photo.is_primary = False

@@ -24,11 +24,11 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     await init_db()
-    
+
     # Ensure upload directories exist
     settings.upload_plants_dir.mkdir(parents=True, exist_ok=True)
     settings.upload_pots_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Start scheduler
     scheduler.add_job(
         check_due_reminders,
@@ -37,9 +37,9 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     scheduler.start()
-    
+
     yield
-    
+
     # Shutdown
     scheduler.shutdown()
 
@@ -53,7 +53,7 @@ app = FastAPI(
 
 # CORS middleware
 app.add_middleware(
-    CORSMiddleware,
+    CORSMiddleware,  # type: ignore
     allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
     allow_methods=["*"],

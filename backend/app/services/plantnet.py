@@ -10,11 +10,11 @@ settings = get_settings()
 async def identify_plant(image_data: bytes, organ: str = "leaf") -> dict:
     """
     Identify a plant using the PlantNet API.
-    
+
     Args:
         image_data: Raw image bytes
         organ: Plant organ type (leaf, flower, fruit, bark)
-        
+
     Returns:
         API response with identification results
     """
@@ -48,18 +48,24 @@ async def identify_plant(image_data: bytes, organ: str = "leaf") -> dict:
             }
 
         data = response.json()
-        
+
         # Transform results into a cleaner format
         results = []
         for result in data.get("results", [])[:5]:  # Top 5 results
             species = result.get("species", {})
-            results.append({
-                "score": result.get("score", 0),
-                "scientific_name": species.get("scientificNameWithoutAuthor", ""),
-                "common_names": species.get("commonNames", []),
-                "family": species.get("family", {}).get("scientificNameWithoutAuthor", ""),
-                "genus": species.get("genus", {}).get("scientificNameWithoutAuthor", ""),
-            })
+            results.append(
+                {
+                    "score": result.get("score", 0),
+                    "scientific_name": species.get("scientificNameWithoutAuthor", ""),
+                    "common_names": species.get("commonNames", []),
+                    "family": species.get("family", {}).get(
+                        "scientificNameWithoutAuthor", ""
+                    ),
+                    "genus": species.get("genus", {}).get(
+                        "scientificNameWithoutAuthor", ""
+                    ),
+                }
+            )
 
         return {
             "results": results,

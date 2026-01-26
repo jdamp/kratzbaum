@@ -1,22 +1,21 @@
 """Tests for reminder logic."""
 
-import pytest
-from datetime import datetime, time, timedelta, UTC
 from dataclasses import dataclass
-from typing import Optional
+from datetime import UTC, datetime, time, timedelta
 
-from app.models import ReminderType, FrequencyType
+from app.models import FrequencyType, ReminderType
 
 
 # Use a dataclass for testing to avoid SQLModel mapper issues
 @dataclass
 class MockReminder:
     """Mock reminder for testing calculation logic."""
+
     reminder_type: ReminderType
     frequency_type: FrequencyType
     preferred_time: time
-    frequency_value: Optional[int] = None
-    specific_days: Optional[list[int]] = None
+    frequency_value: int | None = None
+    specific_days: list[int] | None = None
 
 
 def calculate_next_due_pure(
@@ -37,15 +36,13 @@ def calculate_next_due_pure(
     elif frequency_type == FrequencyType.SPECIFIC_DAYS:
         if specific_days:
             today_weekday = from_date.weekday()
-            days_ahead = min(
-                (d - today_weekday) % 7 or 7 for d in specific_days
-            )
+            days_ahead = min((d - today_weekday) % 7 or 7 for d in specific_days)
             next_date = from_date + timedelta(days=days_ahead)
         else:
             next_date = from_date + timedelta(days=1)
     else:
         next_date = from_date + timedelta(days=1)
-    
+
     return next_date.replace(
         hour=preferred_time.hour,
         minute=preferred_time.minute,
@@ -67,7 +64,7 @@ class TestCalculateNextDue:
             preferred_time=time(9, 0),
             from_date=base,
         )
-        
+
         assert next_due.day == 16
         assert next_due.hour == 9
         assert next_due.minute == 0
@@ -82,7 +79,7 @@ class TestCalculateNextDue:
             preferred_time=time(9, 0),
             from_date=base,
         )
-        
+
         assert next_due.day == 18  # 15 + 3 = 18
         assert next_due.hour == 9
 
@@ -96,7 +93,7 @@ class TestCalculateNextDue:
             preferred_time=time(10, 30),
             from_date=base,
         )
-        
+
         assert next_due.day == 22  # Next Monday
         assert next_due.hour == 10
         assert next_due.minute == 30
@@ -112,7 +109,7 @@ class TestCalculateNextDue:
             preferred_time=time(8, 0),
             from_date=base,
         )
-        
+
         # Next should be Tuesday (day 16)
         assert next_due.day == 16
         assert next_due.weekday() == 1  # Tuesday
@@ -128,7 +125,7 @@ class TestCalculateNextDue:
             preferred_time=time(14, 30),
             from_date=base,
         )
-        
+
         assert next_due.hour == 14
         assert next_due.minute == 30
         assert next_due.second == 0

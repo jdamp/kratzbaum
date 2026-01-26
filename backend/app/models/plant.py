@@ -1,6 +1,6 @@
 """Plant, PlantPhoto, and CareEvent models."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import Enum
 from uuid import UUID, uuid4
 

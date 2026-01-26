@@ -1,6 +1,6 @@
 """Plant API endpoints."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, status
@@ -108,7 +108,7 @@ async def list_plants(
         # Get primary photo
         photo_result = await db.exec(
             select(PlantPhoto).where(
-                PlantPhoto.plant_id == plant.id, PlantPhoto.is_primary == True
+                PlantPhoto.plant_id == plant.id, PlantPhoto.is_primary
             )
         )
         primary_photo = photo_result.first()
@@ -248,9 +248,7 @@ async def update_plant(
 
     # Get primary photo
     photo_result = await db.exec(
-        select(PlantPhoto).where(
-            PlantPhoto.plant_id == plant.id, PlantPhoto.is_primary == True
-        )
+        select(PlantPhoto).where(PlantPhoto.plant_id == plant.id, PlantPhoto.is_primary)
     )
     primary_photo = photo_result.first()
 
@@ -312,7 +310,7 @@ async def upload_photo(
     if is_primary:
         photos_result = await db.exec(
             select(PlantPhoto).where(
-                PlantPhoto.plant_id == plant_id, PlantPhoto.is_primary == True
+                PlantPhoto.plant_id == plant_id, PlantPhoto.is_primary
             )
         )
         for photo in photos_result.all():

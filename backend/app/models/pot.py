@@ -1,6 +1,6 @@
 """Pot and PotPhoto models."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel

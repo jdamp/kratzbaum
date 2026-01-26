@@ -1,6 +1,6 @@
 """Reminder model."""
 
-from datetime import datetime, time, UTC
+from datetime import UTC, datetime, time
 from enum import Enum
 from uuid import UUID, uuid4
 

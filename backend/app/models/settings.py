@@ -1,6 +1,6 @@
 """Single-user authentication settings model."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from sqlmodel import Field, SQLModel
 

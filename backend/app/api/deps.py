@@ -1,5 +1,6 @@
 """API dependencies for dependency injection."""
 
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -12,7 +13,7 @@ from app.core.security import decode_token
 security = HTTPBearer()
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get database session dependency."""
     async for session in get_session():
         yield session

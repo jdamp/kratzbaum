@@ -16,7 +16,9 @@ class Settings(BaseSettings):
     )
 
     # Database
-    database_url: str = "postgresql+asyncpg://kratzbaum:kratzbaum@localhost:5432/kratzbaum"
+    database_url: str = (
+        "postgresql+asyncpg://kratzbaum:kratzbaum@localhost:5432/kratzbaum"
+    )
 
     # Security
     secret_key: str = "change-me-in-production"

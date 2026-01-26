@@ -1,6 +1,6 @@
 """Scheduler jobs for reminders."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from sqlmodel import select
 
@@ -12,7 +12,7 @@ from app.services.push import send_reminder_notification
 async def check_due_reminders() -> None:
     """
     Check for due reminders and send push notifications.
-    
+
     This job runs every minute via APScheduler.
     """
     async with async_session_factory() as session:
@@ -20,7 +20,7 @@ async def check_due_reminders() -> None:
         now = datetime.now(UTC)
         result = await session.exec(
             select(Reminder).where(
-                Reminder.is_enabled == True,
+                Reminder.is_enabled,
                 Reminder.next_due <= now,
             )
         )

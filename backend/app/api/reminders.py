@@ -1,14 +1,14 @@
 """Reminder API endpoints."""
 
-from datetime import datetime, time, timedelta, UTC
+from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-from sqlmodel import col, select
+from sqlmodel import select
 
 from app.api.deps import CurrentUser, DbSession
-from app.models import Reminder, ReminderType, FrequencyType, Plant
+from app.models import FrequencyType, Plant, Reminder, ReminderType
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
@@ -58,10 +58,12 @@ class SnoozeRequest(BaseModel):
     snooze_hours: int = 1
 
 
-def calculate_next_due(reminder: Reminder, from_date: datetime | None = None) -> datetime:
+def calculate_next_due(
+    reminder: Reminder, from_date: datetime | None = None
+) -> datetime:
     """Calculate the next due date for a reminder."""
     base = from_date or datetime.now(UTC)
-    
+
     if reminder.frequency_type == FrequencyType.DAILY:
         next_date = base + timedelta(days=1)
     elif reminder.frequency_type == FrequencyType.INTERVAL:
@@ -81,7 +83,7 @@ def calculate_next_due(reminder: Reminder, from_date: datetime | None = None) ->
             next_date = base + timedelta(days=1)
     else:
         next_date = base + timedelta(days=1)
-    
+
     # Combine with preferred time
     return next_date.replace(
         hour=reminder.preferred_time.hour,
@@ -97,7 +99,7 @@ async def list_reminders(
     _user: CurrentUser,
 ) -> list[ReminderResponse]:
     """List all reminders."""
-    result = await db.exec(select(Reminder).order_by(Reminder.next_due))
+    result = await db.exec(select(Reminder).order_by(Reminder.next_due))  # type: ignore
     reminders = result.all()
 
     responses = []
@@ -134,8 +136,8 @@ async def list_upcoming_reminders(
     cutoff = datetime.now(UTC) + timedelta(days=days)
     result = await db.exec(
         select(Reminder)
-        .where(Reminder.is_enabled == True, Reminder.next_due <= cutoff)
-        .order_by(Reminder.next_due)
+        .where(Reminder.is_enabled, Reminder.next_due <= cutoff)
+        .order_by(Reminder.next_due)  # type: ignore
     )
     reminders = result.all()
 
@@ -172,8 +174,8 @@ async def list_overdue_reminders(
     now = datetime.now(UTC)
     result = await db.exec(
         select(Reminder)
-        .where(Reminder.is_enabled == True, Reminder.next_due < now)
-        .order_by(Reminder.next_due)
+        .where(Reminder.is_enabled, Reminder.next_due < now)
+        .order_by(Reminder.next_due)  # type: ignore
     )
     reminders = result.all()
 

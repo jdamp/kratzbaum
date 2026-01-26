@@ -2,7 +2,7 @@
 
 import json
 
-from pywebpush import webpush, WebPushException
+from pywebpush import WebPushException, webpush
 
 from app.core.config import get_settings
 from app.models import PushSubscription
@@ -18,13 +18,13 @@ async def send_push_notification(
 ) -> bool:
     """
     Send a web push notification.
-    
+
     Args:
         subscription: Push subscription from database
         title: Notification title
         body: Notification body
         url: Optional URL to open on click
-        
+
     Returns:
         True if successful, False otherwise
     """
@@ -32,11 +32,13 @@ async def send_push_notification(
         return False
 
     try:
-        payload = json.dumps({
-            "title": title,
-            "body": body,
-            "url": url,
-        })
+        payload = json.dumps(
+            {
+                "title": title,
+                "body": body,
+                "url": url,
+            }
+        )
 
         webpush(
             subscription_info={
@@ -68,5 +70,5 @@ async def send_reminder_notification(
         subscription=subscription,
         title=f"Time to {type_label} {plant_name}",
         body=f"Your plant {plant_name} needs {type_label}ing!",
-        url=f"/plants",
+        url="/plants",
     )
