@@ -4,7 +4,7 @@ from datetime import UTC, datetime, time
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, DateTime, JSON
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -41,9 +41,17 @@ class Reminder(SQLModel, table=True):
     is_enabled: bool = Field(default=True)
     dormant_start: int | None = Field(default=None)  # Month 1-12
     dormant_end: int | None = Field(default=None)  # Month 1-12
-    next_due: datetime
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    next_due: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
     # Relationships
     plant: "Plant" = Relationship(back_populates="reminders")

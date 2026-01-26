@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, DateTime, JSON
 from sqlmodel import Field, SQLModel
 
 
@@ -28,4 +28,7 @@ class PlantIdentification(SQLModel, table=True):
     organ: OrganType
     results: dict = Field(default_factory=dict, sa_column=Column(JSON))
     selected_species: str | None = Field(default=None, max_length=200)
-    requested_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    requested_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )

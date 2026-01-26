@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, DateTime
 from sqlalchemy.orm import relationship as sa_relationship
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -26,8 +27,14 @@ class Plant(SQLModel, table=True):
     pot_id: UUID | None = Field(default=None, foreign_key="pots.id")
     name: str = Field(max_length=100, index=True)
     species: str | None = Field(default=None, max_length=200)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
     # Relationships
     pot: Optional["Pot"] = Relationship(
@@ -56,7 +63,10 @@ class PlantPhoto(SQLModel, table=True):
     plant_id: UUID = Field(foreign_key="plants.id", index=True)
     file_path: str = Field(max_length=500)
     is_primary: bool = Field(default=False)
-    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    uploaded_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
     # Relationships
     plant: Plant = Relationship(back_populates="photos")
@@ -70,9 +80,14 @@ class CareEvent(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     plant_id: UUID = Field(foreign_key="plants.id", index=True)
     event_type: CareEventType
-    event_date: datetime
+    event_date: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
     notes: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
     # Relationships
     plant: Plant = Relationship(back_populates="care_events")

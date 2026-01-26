@@ -3,6 +3,8 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, DateTime
+
 from sqlmodel import Field, SQLModel
 
 
@@ -15,4 +17,7 @@ class PushSubscription(SQLModel, table=True):
     endpoint: str = Field(max_length=500, unique=True, index=True)
     p256dh_key: str = Field(max_length=255)
     auth_key: str = Field(max_length=255)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
