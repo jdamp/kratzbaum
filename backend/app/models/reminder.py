@@ -42,8 +42,8 @@ class Reminder(SQLModel, table=True):
     dormant_start: int | None = Field(default=None)  # Month 1-12
     dormant_end: int | None = Field(default=None)  # Month 1-12
     next_due: datetime
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     # Relationships
     plant: "Plant" = Relationship(back_populates="reminders")

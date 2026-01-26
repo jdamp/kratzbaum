@@ -16,8 +16,8 @@ class Pot(SQLModel, table=True):
     name: str = Field(max_length=100)
     diameter_cm: float
     height_cm: float
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     # Relationships
     photos: list["PotPhoto"] = Relationship(
@@ -36,7 +36,7 @@ class PotPhoto(SQLModel, table=True):
     pot_id: UUID = Field(foreign_key="pots.id", index=True)
     file_path: str = Field(max_length=500)
     is_primary: bool = Field(default=False)
-    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     # Relationships
     pot: Pot = Relationship(back_populates="photos")

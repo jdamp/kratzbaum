@@ -26,8 +26,8 @@ class Plant(SQLModel, table=True):
     pot_id: UUID | None = Field(default=None, foreign_key="pots.id")
     name: str = Field(max_length=100, index=True)
     species: str | None = Field(default=None, max_length=200)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     # Relationships
     pot: Optional["Pot"] = Relationship(
@@ -56,7 +56,7 @@ class PlantPhoto(SQLModel, table=True):
     plant_id: UUID = Field(foreign_key="plants.id", index=True)
     file_path: str = Field(max_length=500)
     is_primary: bool = Field(default=False)
-    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     # Relationships
     plant: Plant = Relationship(back_populates="photos")
@@ -72,7 +72,7 @@ class CareEvent(SQLModel, table=True):
     event_type: CareEventType
     event_date: datetime
     notes: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     # Relationships
     plant: Plant = Relationship(back_populates="care_events")
