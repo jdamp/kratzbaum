@@ -72,6 +72,12 @@ export interface Pot {
 	updated_at: string;
 }
 
+export interface PotCreate {
+	name: string;
+	diameter_cm: number;
+	height_cm: number;
+}
+
 export interface PotDetail extends Pot {
 	photos: PotPhoto[];
 	plant: {

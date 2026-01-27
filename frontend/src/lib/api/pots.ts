@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Pot, PotDetail } from './types';
+import type { Pot, PotCreate, PotDetail } from './types';
 
 export const potService = {
 	getPots: () => {
@@ -14,7 +14,7 @@ export const potService = {
 		return apiClient.get<PotDetail>(`/pots/${id}`);
 	},
 
-	createPot: (data: FormData) => {
+	createPot: (data: PotCreate) => {
 		return apiClient.post<Pot>('/pots', data);
 	},
 

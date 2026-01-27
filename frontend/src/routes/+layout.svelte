@@ -36,16 +36,31 @@
 
 <div class="h-full flex flex-col bg-surface-100 font-body">
 	{#if $isAuthenticated && page.url.pathname !== '/login'}
-		<!-- Header -->
-		<header class="bg-primary-600 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-10">
-			<div class="flex items-center gap-2">
-				<Leaf class="w-6 h-6" />
-				<h1 class="text-xl font-bold font-header">Kratzbaum</h1>
+			<!-- Header -->
+		<header class="shadow-md sticky top-0 z-10" style="background-color: #2d5a27; color: white;">
+			<div class="flex justify-between items-center p-4">
+				<div class="flex items-center gap-2">
+					<Leaf class="w-6 h-6" />
+					<h1 class="text-xl font-bold font-header">Kratzbaum</h1>
+				</div>
+				<!-- Desktop Navigation -->
+				<nav class="hidden sm:flex items-center gap-4">
+					{#each navItems as item}
+						<a 
+							href={item.href} 
+							class="flex items-center gap-2 px-3 py-2 rounded-md transition-colors"
+							style="background-color: {page.url.pathname === item.href || (item.href === '/' && page.url.pathname.startsWith('/plants')) ? 'rgba(255,255,255,0.2)' : 'transparent'}; color: white;"
+						>
+							<item.icon class="w-5 h-5" />
+							<span>{item.label}</span>
+						</a>
+					{/each}
+				</nav>
+				<button class="btn btn-sm variant-soft" onclick={() => auth.logout()}>
+					<LogOut class="w-4 h-4" />
+					<span class="hidden sm:inline">Logout</span>
+				</button>
 			</div>
-			<button class="btn btn-sm variant-soft" onclick={() => auth.logout()}>
-				<LogOut class="w-4 h-4" />
-				<span class="hidden sm:inline">Logout</span>
-			</button>
 		</header>
 
 		<!-- Main Content -->

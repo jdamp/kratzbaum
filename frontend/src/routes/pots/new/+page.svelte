@@ -20,12 +20,11 @@
 		error = null;
 
 		try {
-			const formData = new FormData();
-			formData.append('name', name.trim());
-			formData.append('diameter_cm', diameter);
-			formData.append('height_cm', height);
-
-			const newPot = await potService.createPot(formData);
+			const newPot = await potService.createPot({
+				name: name.trim(),
+				diameter_cm: parseFloat(diameter),
+				height_cm: parseFloat(height)
+			});
 			goto(`/pots/${newPot.id}`);
 		} catch (err: any) {
 			error = err.message || 'Failed to create pot';
