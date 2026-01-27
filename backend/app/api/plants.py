@@ -423,3 +423,30 @@ async def list_care_events(
         )
         for e in events
     ]
+
+
+@router.delete(
+    "/{plant_id}/care-events/{event_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_care_event(
+    plant_id: UUID,
+    event_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> None:
+    """Delete a care event."""
+    result = await db.exec(
+        select(CareEvent).where(
+            CareEvent.id == event_id, CareEvent.plant_id == plant_id
+        )
+    )
+    event = result.first()
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Care event not found",
+        )
+
+    await db.delete(event)
+    await db.commit()

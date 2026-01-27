@@ -198,6 +198,63 @@ class TestPlantEndpoints:
         assert response.status_code == 200
         assert response.json()["event_type"] == "WATERED"
 
+    @pytest.mark.asyncio
+    async def test_delete_care_event(self, client: AsyncClient, auth_headers: dict):
+        """Test deleting a care event."""
+        # Create plant first
+        create_response = await client.post(
+            "/api/plants",
+            json={"name": "Test Plant"},
+            headers=auth_headers,
+        )
+        plant_id = create_response.json()["id"]
+
+        # Create care event
+        event_response = await client.post(
+            f"/api/plants/{plant_id}/care-events",
+            json={"event_type": "WATERED"},
+            headers=auth_headers,
+        )
+        event_id = event_response.json()["id"]
+
+        # Delete care event
+        delete_response = await client.delete(
+            f"/api/plants/{plant_id}/care-events/{event_id}",
+            headers=auth_headers,
+        )
+
+        assert delete_response.status_code == 204
+
+        # Verify event is deleted by checking care events list
+        list_response = await client.get(
+            f"/api/plants/{plant_id}/care-events",
+            headers=auth_headers,
+        )
+        events = list_response.json()
+        assert all(e["id"] != event_id for e in events)
+
+    @pytest.mark.asyncio
+    async def test_delete_care_event_not_found(
+        self, client: AsyncClient, auth_headers: dict
+    ):
+        """Test deleting a non-existent care event returns 404."""
+        # Create plant first
+        create_response = await client.post(
+            "/api/plants",
+            json={"name": "Test Plant"},
+            headers=auth_headers,
+        )
+        plant_id = create_response.json()["id"]
+
+        # Try to delete non-existent care event
+        fake_event_id = "00000000-0000-0000-0000-000000000000"
+        response = await client.delete(
+            f"/api/plants/{plant_id}/care-events/{fake_event_id}",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 404
+
 
 class TestPotEndpoints:
     """Tests for pot CRUD endpoints."""

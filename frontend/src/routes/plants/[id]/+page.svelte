@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { plantService } from '$lib/api/plants';
 	import type { PlantDetail, CareEvent } from '$lib/api/types';
-	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, Camera } from 'lucide-svelte';
+	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, Camera, X } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 
 	let plant: PlantDetail | null = $state(null);
@@ -43,6 +43,20 @@
 		if (confirm('Are you sure you want to delete this plant?')) {
 			await plantService.deletePlant(plant.id);
 			goto('/');
+		}
+	}
+
+	async function handleDeleteCareEvent(eventId: string) {
+		if (!plant) return;
+		if (confirm('Are you sure you want to delete this care event?')) {
+			try {
+				await plantService.deleteCareEvent(plant.id, eventId);
+				// Refresh care events and plant data (for updated last_watered, etc.)
+				careEvents = await plantService.getCareHistory(plant.id);
+				plant = await plantService.getPlant(plant.id);
+			} catch (err) {
+				console.error('Failed to delete care event:', err);
+			}
 		}
 	}
 </script>
@@ -166,10 +180,17 @@
 							<div class="flex-1">
 								<p class="font-medium capitalize">{event.event_type.toLowerCase()}</p>
 								<p class="text-sm text-surface-500">{new Date(event.event_date).toLocaleString()}</p>
+								{#if event.notes}
+									<p class="text-sm text-surface-600">{event.notes}</p>
+								{/if}
 							</div>
-							{#if event.notes}
-								<p class="text-sm text-surface-600">{event.notes}</p>
-							{/if}
+							<button 
+								class="p-1 text-surface-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"
+								onclick={() => handleDeleteCareEvent(event.id)}
+								title="Delete this entry"
+							>
+								<X class="w-4 h-4" />
+							</button>
 						</div>
 					{/each}
 				</div>

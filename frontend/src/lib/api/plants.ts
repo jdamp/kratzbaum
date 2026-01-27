@@ -51,5 +51,9 @@ export const plantService = {
 
 	getCareHistory: (plantId: string) => {
 		return apiClient.get<CareEvent[]>(`/plants/${plantId}/care-events`);
+	},
+
+	deleteCareEvent: (plantId: string, eventId: string) => {
+		return apiClient.delete(`/plants/${plantId}/care-events/${eventId}`);
 	}
 };
