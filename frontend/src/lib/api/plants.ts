@@ -33,6 +33,10 @@ export const plantService = {
 		return apiClient.post<{ id: string; url: string }>(`/plants/${plantId}/photos?is_primary=${isPrimary}`, formData);
 	},
 
+	deletePhoto: (plantId: string, photoId: string) => {
+		return apiClient.delete(`/plants/${plantId}/photos/${photoId}`);
+	},
+
 	updatePlant: (id: string, data: any) => {
 		return apiClient.put<Plant>(`/plants/${id}`, data);
 	},

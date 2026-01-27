@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { plantService } from '$lib/api/plants';
-	import type { PlantDetail, CareEvent } from '$lib/api/types';
-	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, Camera, X, Check } from 'lucide-svelte';
+	import type { PlantDetail, CareEvent, PlantPhoto } from '$lib/api/types';
+	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, Camera, X, Check, Plus } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 
 	let plant: PlantDetail | null = $state(null);
@@ -15,6 +15,11 @@
 	let editName = $state('');
 	let editSpecies = $state('');
 	let isSaving = $state(false);
+
+	// Photo management state
+	let selectedPhotoIndex = $state(0);
+	let isUploadingPhoto = $state(false);
+	let deletingPhotoId = $state<string | null>(null);
 
 	const plantId = page.params.id ?? '';
 
@@ -62,6 +67,57 @@
 		} finally {
 			isSaving = false;
 		}
+	}
+
+	async function handleNewPhotoChange(event: Event) {
+		const input = event.target as HTMLInputElement;
+		if (input.files && input.files[0]) {
+			const file = input.files[0];
+			// Upload immediately
+			await handleUploadPhotoFile(file);
+			// Reset the input so the same file can be selected again
+			input.value = '';
+		}
+	}
+
+	async function handleUploadPhotoFile(file: File) {
+		if (!plant) return;
+		isUploadingPhoto = true;
+		try {
+			const isPrimary = plant.photos.length === 0;
+			await plantService.uploadPhoto(plant.id, file, isPrimary);
+			// Refresh plant data
+			plant = await plantService.getPlant(plant.id);
+		} catch (err) {
+			console.error('Failed to upload photo:', err);
+		} finally {
+			isUploadingPhoto = false;
+		}
+	}
+
+
+
+	async function handleDeletePhoto(photoId: string) {
+		if (!plant) return;
+		if (!confirm('Are you sure you want to delete this photo?')) return;
+		deletingPhotoId = photoId;
+		try {
+			await plantService.deletePhoto(plant.id, photoId);
+			// Refresh plant data
+			plant = await plantService.getPlant(plant.id);
+			// Reset selected index if needed
+			if (selectedPhotoIndex >= plant.photos.length) {
+				selectedPhotoIndex = Math.max(0, plant.photos.length - 1);
+			}
+		} catch (err) {
+			console.error('Failed to delete photo:', err);
+		} finally {
+			deletingPhotoId = null;
+		}
+	}
+
+	function getPhotoUrl(photo: PlantPhoto): string {
+		return photo.url.startsWith('/') ? photo.url : `/uploads/${photo.url}`;
 	}
 
 	async function handleCareEvent(type: 'WATERED' | 'FERTILIZED' | 'REPOTTED') {
@@ -112,16 +168,43 @@
 		</a>
 
 		<!-- Photo Gallery -->
-		<div class="relative">
-			{#if plant.photos && plant.photos.length > 0}
-				<img 
-					src={plant.photos[0].url.startsWith('/') ? plant.photos[0].url : `/uploads/${plant.photos[0].url}`}
-					alt={plant.name}
-					class="w-full h-64 object-cover rounded-lg"
-				/>
-			{:else}
-				<div class="w-full h-64 bg-surface-200 rounded-lg flex items-center justify-center">
-					<Leaf class="w-16 h-16 text-surface-400" />
+		<div class="space-y-3">
+			<!-- Main Photo Display -->
+			<div class="relative">
+				{#if plant.photos && plant.photos.length > 0}
+					<img 
+						src={getPhotoUrl(plant.photos[selectedPhotoIndex])}
+						alt={plant.name}
+						class="w-full h-64 object-cover rounded-lg"
+					/>
+					{#if plant.photos[selectedPhotoIndex].is_primary}
+						<span class="absolute top-2 left-2 bg-primary-500 text-white text-xs px-2 py-1 rounded-full">
+							Primary
+						</span>
+					{/if}
+				{:else}
+					<div class="w-full h-64 bg-surface-200 rounded-lg flex items-center justify-center">
+						<Leaf class="w-16 h-16 text-surface-400" />
+					</div>
+				{/if}
+			</div>
+
+			<!-- Photo Thumbnails -->
+			{#if plant.photos && plant.photos.length > 1}
+				<div class="flex gap-2 overflow-x-auto pb-2">
+					{#each plant.photos as photo, index}
+						<button
+							type="button"
+							class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all {selectedPhotoIndex === index ? 'border-primary-500 ring-2 ring-primary-200' : 'border-surface-200 hover:border-primary-300'}"
+							onclick={() => selectedPhotoIndex = index}
+						>
+							<img 
+								src={getPhotoUrl(photo)}
+								alt="{plant.name} photo {index + 1}"
+								class="w-full h-full object-cover"
+							/>
+						</button>
+					{/each}
 				</div>
 			{/if}
 		</div>
@@ -279,6 +362,61 @@
 						class="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
 						placeholder="e.g. Monstera deliciosa"
 					/>
+				</div>
+				
+				<!-- Photo Management -->
+				<div>
+					<label class="block text-sm font-medium text-surface-700 mb-2">Photos</label>
+					
+					<!-- Existing Photos -->
+					{#if plant && plant.photos && plant.photos.length > 0}
+						<div class="grid grid-cols-3 gap-2 mb-3">
+							{#each plant.photos as photo}
+								<div class="relative group">
+									<img 
+										src={getPhotoUrl(photo)}
+										alt="Plant photo"
+										class="w-full h-20 object-cover rounded-lg"
+									/>
+									{#if photo.is_primary}
+										<span class="absolute bottom-1 left-1 bg-primary-500 text-white text-[10px] px-1 py-0.5 rounded">
+											Primary
+										</span>
+									{/if}
+									<button
+										type="button"
+										class="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+										onclick={() => handleDeletePhoto(photo.id)}
+										disabled={deletingPhotoId === photo.id}
+										title="Delete photo"
+									>
+										<X class="w-3 h-3" />
+									</button>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-sm text-surface-500 mb-3">No photos yet</p>
+					{/if}
+					
+					<!-- Add New Photo -->
+					{#if isUploadingPhoto}
+						<div class="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-primary-300 rounded-lg bg-primary-50">
+							<div class="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+							<span class="text-sm text-primary-600">Uploading...</span>
+						</div>
+					{:else}
+						<label class="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-surface-300 rounded-lg cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-colors">
+							<input 
+								type="file" 
+								accept="image/*" 
+								class="hidden" 
+								onchange={handleNewPhotoChange}
+							/>
+							<Plus class="w-4 h-4 text-surface-500" />
+							<span class="text-sm text-surface-600">Add photo</span>
+						</label>
+					{/if}
 				</div>
 				
 				<div class="flex gap-3 pt-2">
