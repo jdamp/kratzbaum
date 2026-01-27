@@ -46,9 +46,18 @@
 			Back to Pots
 		</a>
 
-		<div class="w-full h-48 bg-surface-200 rounded-lg flex items-center justify-center">
-			<Box class="w-16 h-16 text-surface-400" />
-		</div>
+		<!-- Pot Photo -->
+		{#if pot.photos && pot.photos.length > 0}
+			<img 
+				src={pot.photos.find(p => p.is_primary)?.url || pot.photos[0].url}
+				alt={pot.name}
+				class="w-full h-48 object-cover rounded-lg"
+			/>
+		{:else}
+			<div class="w-full h-48 bg-surface-200 rounded-lg flex items-center justify-center">
+				<Box class="w-16 h-16 text-surface-400" />
+			</div>
+		{/if}
 
 		<div class="card p-6 bg-surface-50">
 			<div class="flex justify-between items-start mb-4">
@@ -59,9 +68,9 @@
 					</p>
 				</div>
 				<div class="flex gap-2">
-					<button class="btn btn-sm variant-soft">
+					<a href="/pots/new?edit={pot.id}" class="btn btn-sm variant-soft">
 						<Edit2 class="w-4 h-4" />
-					</button>
+					</a>
 					<button class="btn btn-sm variant-soft-error" onclick={handleDelete}>
 						<Trash2 class="w-4 h-4" />
 					</button>

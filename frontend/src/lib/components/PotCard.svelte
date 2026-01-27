@@ -7,9 +7,17 @@
 
 <a href="/pots/{pot.id}" class="card overflow-hidden bg-surface-50 shadow-sm hover:shadow-md transition-shadow block">
 	<header>
-		<div class="aspect-square bg-surface-200 flex items-center justify-center">
-			<Box class="w-12 h-12 text-surface-400" />
-		</div>
+		{#if pot.primary_photo_url}
+			<img 
+				src={pot.primary_photo_url}
+				alt={pot.name}
+				class="aspect-square object-cover w-full"
+			/>
+		{:else}
+			<div class="aspect-square bg-surface-200 flex items-center justify-center">
+				<Box class="w-12 h-12 text-surface-400" />
+			</div>
+		{/if}
 	</header>
 	
 	<section class="p-4">

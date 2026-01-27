@@ -24,5 +24,11 @@ export const potService = {
 
 	deletePot: (id: string) => {
 		return apiClient.delete(`/pots/${id}`);
+	},
+
+	uploadPhoto: async (potId: string, file: File, isPrimary: boolean = false) => {
+		const formData = new FormData();
+		formData.append('file', file);
+		return apiClient.post(`/pots/${potId}/photos?is_primary=${isPrimary}`, formData);
 	}
 };

@@ -66,6 +66,7 @@ export interface Pot {
 	name: string;
 	diameter_cm: number;
 	height_cm: number;
+	primary_photo_url: string | null;
 	is_assigned?: boolean;
 	assigned_plant_name?: string | null;
 	created_at: string;
