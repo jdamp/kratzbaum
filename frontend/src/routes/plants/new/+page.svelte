@@ -2,9 +2,17 @@
 	import { goto } from '$app/navigation';
 	import { plantService } from '$lib/api/plants';
 	import { potService } from '$lib/api/pots';
+	import { apiClient } from '$lib/api/client';
 	import type { Pot } from '$lib/api/types';
-	import { ArrowLeft, Camera, Upload, Leaf } from 'lucide-svelte';
+	import { ArrowLeft, Camera, Upload, Leaf, Search } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+
+	interface IdentificationResult {
+		score: number;
+		scientific_name: string;
+		common_names: string[];
+		family: string;
+	}
 
 	let name = $state('');
 	let species = $state('');
@@ -15,6 +23,11 @@
 	let availablePots: Pot[] = $state([]);
 	let isSubmitting = $state(false);
 	let error = $state<string | null>(null);
+
+	// Species identification state
+	let isIdentifying = $state(false);
+	let identificationResults = $state<IdentificationResult[]>([]);
+	let identifyError = $state<string | null>(null);
 
 	onMount(async () => {
 		try {
@@ -33,7 +46,49 @@
 				photoPreview = e.target?.result as string;
 			};
 			reader.readAsDataURL(input.files[0]);
+			// Reset identification results when a new photo is selected
+			identificationResults = [];
+			identifyError = null;
 		}
+	}
+
+	async function handleIdentify() {
+		if (!photos || !photos[0]) {
+			identifyError = 'Please select a photo first';
+			return;
+		}
+
+		isIdentifying = true;
+		identifyError = null;
+
+		try {
+			const formData = new FormData();
+			formData.append('image', photos[0]);
+			formData.append('organ', 'leaf'); // Default to leaf
+
+			const response = await apiClient.post<{ results: IdentificationResult[]; error?: string }>('/identify', formData);
+			
+			if (response.error) {
+				identifyError = response.error;
+			} else {
+				identificationResults = response.results || [];
+				if (identificationResults.length === 0) {
+					identifyError = 'No species matches found';
+				}
+			}
+		} catch (err: any) {
+			identifyError = err.message || 'Identification failed';
+		} finally {
+			isIdentifying = false;
+		}
+	}
+
+	function selectSpecies(result: IdentificationResult) {
+		// Use common name if available, otherwise scientific name
+		species = result.common_names.length > 0 
+			? result.common_names[0] 
+			: result.scientific_name;
+		identificationResults = [];
 	}
 
 	async function handleSubmit(event: Event) {
@@ -115,15 +170,64 @@
 			</label>
 
 			<!-- Species -->
-			<label class="label">
-				<span class="label-text font-medium">Species (optional)</span>
-				<input 
-					type="text" 
-					class="input" 
-					placeholder="e.g., Monstera deliciosa"
-					bind:value={species}
-				/>
-			</label>
+			<div class="space-y-2">
+				<label class="label">
+					<span class="label-text font-medium">Species (optional)</span>
+					<div class="flex gap-2">
+						<input 
+							type="text" 
+							class="input flex-1" 
+							placeholder="e.g., Monstera deliciosa"
+							bind:value={species}
+						/>
+						{#if photoPreview}
+							<button 
+								type="button"
+								class="btn variant-soft-primary flex items-center gap-1"
+								onclick={handleIdentify}
+								disabled={isIdentifying}
+							>
+								<Search class="w-4 h-4" />
+								<span class="hidden sm:inline">{isIdentifying ? 'Identifying...' : 'Identify'}</span>
+							</button>
+						{/if}
+					</div>
+				</label>
+
+				{#if identifyError}
+					<div class="alert variant-soft-warning text-sm">
+						<p>{identifyError}</p>
+					</div>
+				{/if}
+
+				{#if identificationResults.length > 0}
+					<div class="bg-white rounded-lg border border-surface-200 p-3 space-y-2">
+						<p class="text-sm font-medium text-surface-600">Select a species:</p>
+						{#each identificationResults as result}
+							<button 
+								type="button"
+								class="w-full text-left p-3 bg-surface-50 rounded-lg border border-surface-200 hover:border-primary-500 hover:bg-primary-50 transition-colors"
+								onclick={() => selectSpecies(result)}
+							>
+								<div class="flex items-center justify-between gap-2">
+									<div class="flex items-center gap-2 min-w-0">
+										<Leaf class="w-4 h-4 text-primary-600 flex-shrink-0" />
+										<div class="min-w-0">
+											<p class="font-medium text-sm truncate">{result.scientific_name}</p>
+											{#if result.common_names.length > 0}
+												<p class="text-xs text-surface-500 truncate">{result.common_names[0]}</p>
+											{/if}
+										</div>
+									</div>
+									<span class="text-sm font-bold text-primary-600 flex-shrink-0">
+										{Math.round(result.score * 100)}%
+									</span>
+								</div>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 
 			<!-- Pot Selection -->
 			<label class="label">
