@@ -3,12 +3,18 @@
 	import { page } from '$app/state';
 	import { plantService } from '$lib/api/plants';
 	import type { PlantDetail, CareEvent } from '$lib/api/types';
-	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, Camera, X } from 'lucide-svelte';
+	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, Camera, X, Check } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 
 	let plant: PlantDetail | null = $state(null);
 	let careEvents: CareEvent[] = $state([]);
 	let isLoading = $state(true);
+
+	// Edit modal state
+	let showEditModal = $state(false);
+	let editName = $state('');
+	let editSpecies = $state('');
+	let isSaving = $state(false);
 
 	const plantId = page.params.id ?? '';
 
@@ -26,6 +32,37 @@
 			isLoading = false;
 		}
 	});
+
+	function openEditModal() {
+		if (!plant) return;
+		editName = plant.name;
+		editSpecies = plant.species || '';
+		showEditModal = true;
+	}
+
+	function closeEditModal() {
+		showEditModal = false;
+		editName = '';
+		editSpecies = '';
+	}
+
+	async function handleSaveEdit() {
+		if (!plant || !editName.trim()) return;
+		isSaving = true;
+		try {
+			await plantService.updatePlant(plant.id, {
+				name: editName.trim(),
+				species: editSpecies.trim() || null
+			});
+			// Refresh plant data
+			plant = await plantService.getPlant(plant.id);
+			closeEditModal();
+		} catch (err) {
+			console.error('Failed to update plant:', err);
+		} finally {
+			isSaving = false;
+		}
+	}
 
 	async function handleCareEvent(type: 'WATERED' | 'FERTILIZED' | 'REPOTTED') {
 		if (!plant) return;
@@ -97,7 +134,7 @@
 					<p class="text-surface-600 italic">{plant.species || 'Unknown species'}</p>
 				</div>
 				<div class="flex gap-2">
-					<button class="btn btn-sm variant-soft">
+					<button class="btn btn-sm variant-soft" onclick={openEditModal}>
 						<Edit2 class="w-4 h-4" />
 					</button>
 					<button class="btn btn-sm variant-soft-error" onclick={handleDelete}>
@@ -203,5 +240,69 @@
 	<div class="text-center py-20">
 		<p class="text-surface-500">Plant not found.</p>
 		<a href="/" class="btn variant-soft-primary mt-4">Back to Plants</a>
+	</div>
+{/if}
+
+<!-- Edit Modal -->
+{#if showEditModal}
+	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+		<div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+			<div class="flex justify-between items-center mb-4">
+				<h2 class="text-xl font-bold">Edit Plant</h2>
+				<button 
+					class="p-1 text-surface-400 hover:text-surface-600 rounded-full"
+					onclick={closeEditModal}
+				>
+					<X class="w-5 h-5" />
+				</button>
+			</div>
+			
+			<form onsubmit={(e) => { e.preventDefault(); handleSaveEdit(); }} class="space-y-4">
+				<div>
+					<label for="edit-name" class="block text-sm font-medium text-surface-700 mb-1">Name</label>
+					<input
+						id="edit-name"
+						type="text"
+						bind:value={editName}
+						class="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+						placeholder="Plant name"
+						required
+					/>
+				</div>
+				
+				<div>
+					<label for="edit-species" class="block text-sm font-medium text-surface-700 mb-1">Species</label>
+					<input
+						id="edit-species"
+						type="text"
+						bind:value={editSpecies}
+						class="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+						placeholder="e.g. Monstera deliciosa"
+					/>
+				</div>
+				
+				<div class="flex gap-3 pt-2">
+					<button
+						type="button"
+						class="btn variant-soft flex-1"
+						onclick={closeEditModal}
+					>
+						Cancel
+					</button>
+					<button
+						type="submit"
+						class="btn variant-filled-primary flex-1"
+						disabled={isSaving || !editName.trim()}
+					>
+						{#if isSaving}
+							Saving...
+						{:else}
+							<Check class="w-4 h-4" />
+							<span>Save</span>
+						{/if}
+					</button>
+				</div>
+			</form>
+		</div>
 	</div>
 {/if}
