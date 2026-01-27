@@ -11,8 +11,7 @@
 
 	onMount(async () => {
 		try {
-			const response = await plantService.getPlants();
-			plants = response.items;
+			plants = await plantService.getPlants();
 		} catch (err) {
 			console.error('Failed to fetch plants:', err);
 		} finally {
@@ -36,7 +35,7 @@
 			<input 
 				type="text" 
 				placeholder="Search plants..." 
-				class="input pl-10 w-full"
+				class="input !pl-10 w-full"
 				bind:value={searchQuery}
 			/>
 		</div>

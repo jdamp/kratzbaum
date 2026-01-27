@@ -15,7 +15,7 @@ export const plantService = {
 			});
 		}
 		const query = searchParams.toString();
-		return apiClient.get<{ items: Plant[]; total: number }>(`/plants${query ? `?${query}` : ''}`);
+		return apiClient.get<Plant[]>(`/plants${query ? `?${query}` : ''}`);
 	},
 
 	getPlant: (id: string) => {
