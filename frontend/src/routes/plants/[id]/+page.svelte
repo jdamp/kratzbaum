@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { plantService } from '$lib/api/plants';
 	import type { PlantDetail, CareEvent, PlantPhoto } from '$lib/api/types';
-	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, Camera, X, Check, Plus } from 'lucide-svelte';
+	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, Camera, X, Check, Plus, Calendar } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 
 	let plant: PlantDetail | null = $state(null);
@@ -20,6 +20,12 @@
 	let selectedPhotoIndex = $state(0);
 	let isUploadingPhoto = $state(false);
 	let deletingPhotoId = $state<string | null>(null);
+
+	// Care event modal state
+	let showCareEventModal = $state(false);
+	let careEventType = $state<'WATERED' | 'FERTILIZED' | 'REPOTTED'>('WATERED');
+	let careEventDate = $state('');
+	let isRecordingCareEvent = $state(false);
 
 	const plantId = page.params.id ?? '';
 
@@ -120,14 +126,39 @@
 		return photo.url.startsWith('/') ? photo.url : `/uploads/${photo.url}`;
 	}
 
-	async function handleCareEvent(type: 'WATERED' | 'FERTILIZED' | 'REPOTTED') {
+	function openCareEventModal(type: 'WATERED' | 'FERTILIZED' | 'REPOTTED') {
+		careEventType = type;
+		// Default to today's date in local timezone
+		const now = new Date();
+		careEventDate = now.toISOString().split('T')[0];
+		showCareEventModal = true;
+	}
+
+	function closeCareEventModal() {
+		showCareEventModal = false;
+		careEventDate = '';
+	}
+
+	async function handleRecordCareEvent(useNow: boolean = false) {
 		if (!plant) return;
+		isRecordingCareEvent = true;
 		try {
-			await plantService.recordCareEvent(plant.id, type as any);
-			// Refresh care events
+			let eventDate: Date;
+			if (useNow) {
+				eventDate = new Date();
+			} else {
+				// Parse the date as local time at noon to avoid timezone issues
+				eventDate = new Date(careEventDate + 'T12:00:00');
+			}
+			await plantService.recordCareEvent(plant.id, careEventType as any, undefined, eventDate);
+			// Refresh care events and plant data
 			careEvents = await plantService.getCareHistory(plant.id);
+			plant = await plantService.getPlant(plant.id);
+			closeCareEventModal();
 		} catch (err) {
 			console.error(err);
+		} finally {
+			isRecordingCareEvent = false;
 		}
 	}
 
@@ -261,21 +292,21 @@
 			<div class="flex gap-3">
 				<button 
 					class="btn variant-filled-primary flex-1"
-					onclick={() => handleCareEvent('WATERED')}
+					onclick={() => openCareEventModal('WATERED')}
 				>
 					<Droplet class="w-4 h-4" />
 					<span>Water</span>
 				</button>
 				<button 
 					class="btn variant-soft flex-1"
-					onclick={() => handleCareEvent('FERTILIZED')}
+					onclick={() => openCareEventModal('FERTILIZED')}
 				>
 					<Leaf class="w-4 h-4" />
 					<span>Fertilize</span>
 				</button>
 				<button 
 					class="btn variant-soft flex-1"
-					onclick={() => handleCareEvent('REPOTTED')}
+					onclick={() => openCareEventModal('REPOTTED')}
 				>
 					<Flower2 class="w-4 h-4" />
 					<span>Repot</span>
@@ -441,6 +472,97 @@
 					</button>
 				</div>
 			</form>
+		</div>
+	</div>
+{/if}
+
+<!-- Care Event Modal -->
+{#if showCareEventModal}
+	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+		<div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+			<div class="flex justify-between items-center mb-4">
+				<div class="flex items-center gap-2">
+					{#if careEventType === 'WATERED'}
+						<div class="p-2 bg-sky-100 rounded-lg">
+							<Droplet class="w-5 h-5 text-sky-500" />
+						</div>
+						<h2 class="text-xl font-bold">Record Watering</h2>
+					{:else if careEventType === 'FERTILIZED'}
+						<div class="p-2 bg-amber-100 rounded-lg">
+							<Leaf class="w-5 h-5 text-amber-500" />
+						</div>
+						<h2 class="text-xl font-bold">Record Fertilizing</h2>
+					{:else}
+						<div class="p-2 bg-green-100 rounded-lg">
+							<Flower2 class="w-5 h-5 text-green-500" />
+						</div>
+						<h2 class="text-xl font-bold">Record Repotting</h2>
+					{/if}
+				</div>
+				<button 
+					class="p-1 text-surface-400 hover:text-surface-600 rounded-full"
+					onclick={closeCareEventModal}
+				>
+					<X class="w-5 h-5" />
+				</button>
+			</div>
+			
+			<p class="text-sm text-surface-600 mb-4">
+				When did this happen?
+			</p>
+			
+			<div class="space-y-3">
+				<!-- Now Button -->
+				<button
+					type="button"
+					class="btn variant-filled-primary w-full"
+					onclick={() => handleRecordCareEvent(true)}
+					disabled={isRecordingCareEvent}
+				>
+					{#if isRecordingCareEvent}
+						<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+						<span>Recording...</span>
+					{:else}
+						<Check class="w-4 h-4" />
+						<span>Just now</span>
+					{/if}
+				</button>
+				
+				<!-- Or Divider -->
+				<div class="flex items-center gap-3">
+					<div class="flex-1 h-px bg-surface-200"></div>
+					<span class="text-sm text-surface-400">or select a date</span>
+					<div class="flex-1 h-px bg-surface-200"></div>
+				</div>
+				
+				<!-- Date Picker -->
+				<div class="flex gap-2">
+					<div class="flex-1 relative">
+						<Calendar class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none" />
+						<input
+							type="date"
+							bind:value={careEventDate}
+							class="w-full pl-10 pr-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+						/>
+					</div>
+					<button
+						type="button"
+						class="btn variant-soft"
+						onclick={() => handleRecordCareEvent(false)}
+						disabled={isRecordingCareEvent || !careEventDate}
+					>
+						<Check class="w-4 h-4" />
+					</button>
+				</div>
+			</div>
+			
+			<button
+				type="button"
+				class="btn variant-ghost w-full mt-4"
+				onclick={closeCareEventModal}
+			>
+				Cancel
+			</button>
 		</div>
 	</div>
 {/if}

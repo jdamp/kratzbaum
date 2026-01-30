@@ -45,10 +45,10 @@ export const plantService = {
 		return apiClient.delete(`/plants/${id}`);
 	},
 
-	recordCareEvent: (plantId: string, type: CareEventType, notes?: string) => {
+	recordCareEvent: (plantId: string, type: CareEventType, notes?: string, eventDate?: Date) => {
 		return apiClient.post<CareEvent>(`/plants/${plantId}/care-events`, {
 			event_type: type,
-			event_date: new Date().toISOString(),
+			event_date: (eventDate || new Date()).toISOString(),
 			notes
 		});
 	},
