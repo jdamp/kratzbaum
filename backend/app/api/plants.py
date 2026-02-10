@@ -10,6 +10,7 @@ from sqlmodel import col, select
 from app.api.deps import CurrentUser, DbSession
 from app.models import CareEvent, CareEventType, Plant, PlantPhoto
 from app.services.files import save_upload_file
+from app.services.reminders import update_plant_reminders
 
 router = APIRouter(prefix="/plants", tags=["plants"])
 
@@ -21,6 +22,8 @@ class PlantCreate(BaseModel):
     name: str
     species: str | None = None
     pot_id: UUID | None = None
+    watering_interval: int | None = None
+    fertilizing_interval: int | None = None
 
 
 class PlantUpdate(BaseModel):
@@ -29,6 +32,8 @@ class PlantUpdate(BaseModel):
     name: str | None = None
     species: str | None = None
     pot_id: UUID | None = None
+    watering_interval: int | None = None
+    fertilizing_interval: int | None = None
 
 
 class PlantPhotoResponse(BaseModel):
@@ -47,6 +52,8 @@ class PlantResponse(BaseModel):
     name: str
     species: str | None
     pot_id: UUID | None
+    watering_interval: int | None
+    fertilizing_interval: int | None
     primary_photo_url: str | None
     created_at: datetime
     updated_at: datetime
@@ -119,6 +126,8 @@ async def list_plants(
                 name=plant.name,
                 species=plant.species,
                 pot_id=plant.pot_id,
+                watering_interval=plant.watering_interval,
+                fertilizing_interval=plant.fertilizing_interval,
                 primary_photo_url=f"/uploads/plants/{primary_photo.file_path}"
                 if primary_photo
                 else None,
@@ -141,16 +150,24 @@ async def create_plant(
         name=request.name,
         species=request.species,
         pot_id=request.pot_id,
+        watering_interval=request.watering_interval,
+        fertilizing_interval=request.fertilizing_interval,
     )
     db.add(plant)
     await db.commit()
     await db.refresh(plant)
+
+    # Initial reminder calculation
+    await update_plant_reminders(db, plant.id)
+    await db.refresh(plant)  # Refresh to get updated reminders relation if needed
 
     return PlantResponse(
         id=plant.id,
         name=plant.name,
         species=plant.species,
         pot_id=plant.pot_id,
+        watering_interval=plant.watering_interval,
+        fertilizing_interval=plant.fertilizing_interval,
         primary_photo_url=None,
         created_at=plant.created_at,
         updated_at=plant.updated_at,
@@ -197,6 +214,8 @@ async def get_plant(
         name=plant.name,
         species=plant.species,
         pot_id=plant.pot_id,
+        watering_interval=plant.watering_interval,
+        fertilizing_interval=plant.fertilizing_interval,
         primary_photo_url=f"/uploads/plants/{primary_photo.file_path}"
         if primary_photo
         else None,
@@ -234,16 +253,17 @@ async def update_plant(
             detail="Plant not found",
         )
 
-    if request.name is not None:
-        plant.name = request.name
-    if request.species is not None:
-        plant.species = request.species
-    if request.pot_id is not None:
-        plant.pot_id = request.pot_id
+    update_data = request.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(plant, key, value)
 
     plant.updated_at = datetime.now(UTC)
     db.add(plant)
     await db.commit()
+    await db.refresh(plant)
+
+    # Update reminders if intervals changed
+    await update_plant_reminders(db, plant.id)
     await db.refresh(plant)
 
     # Get primary photo
@@ -257,6 +277,8 @@ async def update_plant(
         name=plant.name,
         species=plant.species,
         pot_id=plant.pot_id,
+        watering_interval=plant.watering_interval,
+        fertilizing_interval=plant.fertilizing_interval,
         primary_photo_url=f"/uploads/plants/{primary_photo.file_path}"
         if primary_photo
         else None,
@@ -386,6 +408,9 @@ async def create_care_event(
     await db.commit()
     await db.refresh(event)
 
+    # Update reminders for this plant
+    await update_plant_reminders(db, plant_id)
+
     return CareEventResponse(
         id=event.id,
         event_type=event.event_type,
@@ -450,3 +475,6 @@ async def delete_care_event(
 
     await db.delete(event)
     await db.commit()
+    
+    # Recalculate reminders (might revert to previous event or creation date)
+    await update_plant_reminders(db, plant_id)

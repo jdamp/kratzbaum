@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api import auth, plants, pots, reminders
+from app.api import settings as settings_router
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.scheduler.jobs import check_due_reminders
@@ -68,6 +69,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(plants.router, prefix="/api")
 app.include_router(pots.router, prefix="/api")
 app.include_router(reminders.router, prefix="/api")
+app.include_router(settings_router.router, prefix="/api")
 
 
 @app.get("/api/health")

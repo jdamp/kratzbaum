@@ -1,6 +1,6 @@
 """Scheduler jobs for reminders."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlmodel import select
 
@@ -14,13 +14,17 @@ async def check_due_reminders() -> None:
     Check for due reminders and send push notifications.
 
     This job runs every minute via APScheduler.
+    It checks for enabled reminders that are due and haven't been notified recently.
     """
     async with async_session_factory() as session:
+        now = datetime.now(UTC)
+        
         # Get all enabled reminders that are due
-        now = datetime.now(UTC).replace(tzinfo=None)
+        # We don't filter by last_notified in SQL to keep it simple,
+        # we filter in Python.
         result = await session.exec(
             select(Reminder).where(
-                Reminder.is_enabled,
+                Reminder.is_enabled == True,  # noqa: E712
                 Reminder.next_due <= now,
             )
         )
@@ -37,6 +41,12 @@ async def check_due_reminders() -> None:
             return
 
         for reminder in due_reminders:
+            # Check if we recently notified (anti-spam: once every 24h)
+            if reminder.last_notified:
+                time_since = now - reminder.last_notified
+                if time_since < timedelta(hours=24):
+                    continue
+
             # Get plant name
             plant_result = await session.exec(
                 select(Plant).where(Plant.id == reminder.plant_id)
@@ -53,7 +63,8 @@ async def check_due_reminders() -> None:
                     plant_name=plant.name,
                     reminder_type=reminder.reminder_type.value,
                 )
-
-            # Note: The reminder's next_due is NOT automatically updated here.
-            # The user should mark the reminder as complete via the API,
-            # which will trigger the reschedule.
+            
+            # Update last_notified
+            reminder.last_notified = now
+            session.add(reminder)
+            await session.commit()

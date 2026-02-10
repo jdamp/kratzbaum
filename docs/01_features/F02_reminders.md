@@ -5,26 +5,27 @@ Users can set up customizable reminders for plant care activities, ensuring they
 
 ## User Stories
 
-### US-01: Create Watering Reminder
+### US-01: Global Reminder Intervals
 **As a** user  
-**I want to** set a recurring watering reminder for a plant  
-**So that** I remember to water it regularly
+**I want to** configure global watering and fertilizing intervals  
+**So that** I am automatically reminded to care for my plants by default
 
 **Acceptance Criteria:**
-- Select frequency: daily, every X days, weekly, specific days
-- Set preferred time for reminder
-- Enable/disable reminder without deleting
-- Override for different seasons (summer vs winter frequency)
+- Set global `default_watering_interval` (number of days)
+- Set global `default_fertilizing_interval` (number of days)
+- Global settings apply to all plants without custom settings
+- Reminders are triggered when the time since the last care event exceeds the interval
 
-### US-02: Create Fertilizing Reminder
+### US-02: Plant-Specific Overrides
 **As a** user  
-**I want to** set a fertilizing reminder for a plant  
-**So that** I remember to feed it appropriately
+**I want to** set custom care intervals for a specific plant  
+**So that** I can care for plants with special needs (e.g. succulents that need less water)
 
 **Acceptance Criteria:**
-- Select frequency: weekly, monthly, every X weeks
-- Set preferred time for reminder
-- Enable dormant season pause (winter months)
+- Set `watering_interval` override for a specific plant
+- Set `fertilizing_interval` override for a specific plant
+- Plant overrides take precedence over global settings
+- Option to reset a plant to use "Global Defaults" (clearing the overrides)
 
 ### US-03: View Upcoming Reminders
 **As a** user  
@@ -70,20 +71,27 @@ Users can set up customizable reminders for plant care activities, ensuring they
 
 ## Data Model
 
-### Reminder Entity
+### Global Settings
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| default_watering_interval | Integer | No | Global days between watering (default: null/off) |
+| default_fertilizing_interval | Integer | No | Global days between fertilizing (default: null/off) |
+
+### Plant Entity (Reminders Extension)
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| watering_interval | Integer | No | Custom days between watering (overrides global) |
+| fertilizing_interval | Integer | No | Custom days between fertilizing (overrides global) |
+
+### Reminder Entity (Internal Tracking)
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | id | UUID | Yes | Primary key |
 | plant_id | UUID | Yes | Foreign key to Plant |
 | reminder_type | Enum | Yes | WATERING, FERTILIZING |
-| frequency_type | Enum | Yes | DAILY, DAYS_INTERVAL, WEEKLY, SPECIFIC_DAYS |
-| frequency_value | Integer | Conditional | Days interval or null |
-| specific_days | Array[Int] | Conditional | Day of week (0=Mon, 6=Sun) |
-| preferred_time | Time | Yes | When to send reminder |
+| next_due | DateTime | Yes | Next scheduled reminder (calculated) |
+| preferred_time | Time | Yes | When to send reminder (global or per plant) |
 | is_enabled | Boolean | Yes | Is reminder active? |
-| dormant_start | Integer | No | Month (1-12) when to pause |
-| dormant_end | Integer | No | Month (1-12) when to resume |
-| next_due | DateTime | Yes | Next scheduled reminder |
 | created_at | DateTime | Yes | When reminder was created |
 
 ---

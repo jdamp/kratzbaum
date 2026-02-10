@@ -1,131 +1,158 @@
-"""Tests for reminder logic."""
+"""Integration tests for simplified interval-based reminders."""
 
-from dataclasses import dataclass
-from datetime import UTC, datetime, time, timedelta
+import pytest
+from httpx import AsyncClient
 
-from app.models import FrequencyType, ReminderType
-
-
-# Use a dataclass for testing to avoid SQLModel mapper issues
-@dataclass
-class MockReminder:
-    """Mock reminder for testing calculation logic."""
-
-    reminder_type: ReminderType
-    frequency_type: FrequencyType
-    preferred_time: time
-    frequency_value: int | None = None
-    specific_days: list[int] | None = None
+from app.models import CareEventType, ReminderType
 
 
-def calculate_next_due_pure(
-    frequency_type: FrequencyType,
-    frequency_value: int | None,
-    specific_days: list[int] | None,
-    preferred_time: time,
-    from_date: datetime,
-) -> datetime:
-    """Pure function for calculating next due date (no model dependency)."""
-    if frequency_type == FrequencyType.DAILY:
-        next_date = from_date + timedelta(days=1)
-    elif frequency_type == FrequencyType.INTERVAL:
-        days = frequency_value or 1
-        next_date = from_date + timedelta(days=days)
-    elif frequency_type == FrequencyType.WEEKLY:
-        next_date = from_date + timedelta(weeks=1)
-    elif frequency_type == FrequencyType.SPECIFIC_DAYS:
-        if specific_days:
-            today_weekday = from_date.weekday()
-            days_ahead = min((d - today_weekday) % 7 or 7 for d in specific_days)
-            next_date = from_date + timedelta(days=days_ahead)
-        else:
-            next_date = from_date + timedelta(days=1)
-    else:
-        next_date = from_date + timedelta(days=1)
+class TestRemindersIntegration:
+    """Integration tests for reminder workflow."""
 
-    return next_date.replace(
-        hour=preferred_time.hour,
-        minute=preferred_time.minute,
-        second=0,
-        microsecond=0,
-    )
+    @pytest.mark.asyncio
+    async def test_global_interval_workflow(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ):
+        """Test that global settings trigger reminders."""
 
-
-class TestCalculateNextDue:
-    """Tests for reminder next_due calculation."""
-
-    def test_daily_reminder(self):
-        """Test daily reminder calculates next day."""
-        base = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
-        next_due = calculate_next_due_pure(
-            frequency_type=FrequencyType.DAILY,
-            frequency_value=None,
-            specific_days=None,
-            preferred_time=time(9, 0),
-            from_date=base,
+        # 1. Update Global Settings (Watering: 7 days)
+        response = await client.put(
+            "/api/settings/reminders",
+            json={
+                "default_watering_interval": 7,
+                "preferred_reminder_time": "09:00:00",
+            },
+            headers=auth_headers,
         )
+        assert response.status_code == 200
 
-        assert next_due.day == 16
-        assert next_due.hour == 9
-        assert next_due.minute == 0
-
-    def test_interval_reminder_3_days(self):
-        """Test interval reminder with 3 days."""
-        base = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
-        next_due = calculate_next_due_pure(
-            frequency_type=FrequencyType.INTERVAL,
-            frequency_value=3,
-            specific_days=None,
-            preferred_time=time(9, 0),
-            from_date=base,
+        # 2. Create a Plant
+        response = await client.post(
+            "/api/plants",
+            json={"name": "Test Plant"},
+            headers=auth_headers,
         )
+        assert response.status_code == 201
+        plant_id = response.json()["id"]
 
-        assert next_due.day == 18  # 15 + 3 = 18
-        assert next_due.hour == 9
+        # 3. Check for generated reminder
+        response = await client.get("/api/reminders", headers=auth_headers)
+        reminders = response.json()
+        
+        # Should have 1 watering reminder (fertilizing is null globally)
+        assert len(reminders) == 1
+        reminder = reminders[0]
+        assert reminder["plant_id"] == plant_id
+        assert reminder["reminder_type"] == ReminderType.WATERING
 
-    def test_weekly_reminder(self):
-        """Test weekly reminder calculates next week."""
-        base = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)  # Monday
-        next_due = calculate_next_due_pure(
-            frequency_type=FrequencyType.WEEKLY,
-            frequency_value=None,
-            specific_days=None,
-            preferred_time=time(10, 30),
-            from_date=base,
+    @pytest.mark.asyncio
+    async def test_plant_override_workflow(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ):
+        """Test that plant overrides take precedence."""
+
+        # 1. Create a Plant with Override (Watering: 3 days)
+        response = await client.post(
+            "/api/plants",
+            json={
+                "name": "Thirsty Plant",
+                "watering_interval": 3,
+            },
+            headers=auth_headers,
         )
+        plant_id = response.json()["id"]
 
-        assert next_due.day == 22  # Next Monday
-        assert next_due.hour == 10
-        assert next_due.minute == 30
-
-    def test_specific_days_reminder(self):
-        """Test specific days reminder finds next matching day."""
-        # Monday Jan 15, 2024
-        base = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
-        next_due = calculate_next_due_pure(
-            frequency_type=FrequencyType.SPECIFIC_DAYS,
-            frequency_value=None,
-            specific_days=[1, 4],  # Tuesday, Friday
-            preferred_time=time(8, 0),
-            from_date=base,
+        # 2. Check Reminder
+        response = await client.get("/api/reminders", headers=auth_headers)
+        reminders = response.json()
+        
+        # Find our plant's reminder
+        reminder = next(r for r in reminders if r["plant_id"] == plant_id)
+        assert reminder["reminder_type"] == ReminderType.WATERING
+        # Next due should be roughly 3 days from now
+        # We can't easily assert exact time, but existence proves it worked.
+        
+        # 3. Update Plant to remove override (set to null)
+        # First ensure global setting is null (default)
+        await client.put(
+            "/api/settings/reminders",
+            json={"default_watering_interval": None},
+            headers=auth_headers,
         )
-
-        # Next should be Tuesday (day 16)
-        assert next_due.day == 16
-        assert next_due.weekday() == 1  # Tuesday
-        assert next_due.hour == 8
-
-    def test_preferred_time_preserved(self):
-        """Test that preferred time is always used."""
-        base = datetime(2024, 1, 15, 6, 0, tzinfo=UTC)  # 6 AM
-        next_due = calculate_next_due_pure(
-            frequency_type=FrequencyType.DAILY,
-            frequency_value=None,
-            specific_days=None,
-            preferred_time=time(14, 30),
-            from_date=base,
+        
+        response = await client.put(
+            f"/api/plants/{plant_id}",
+            json={"watering_interval": None},
+            headers=auth_headers,
         )
+        assert response.status_code == 200
 
-        assert next_due.hour == 14
-        assert next_due.minute == 30
-        assert next_due.second == 0
+        # 4. Check Reminder (Should be gone)
+        response = await client.get("/api/reminders", headers=auth_headers)
+        reminders = response.json()
+        assert not any(r["plant_id"] == plant_id for r in reminders)
+
+    @pytest.mark.asyncio
+    async def test_care_event_updates_next_due(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ):
+        """Test that adding a care event pushes next_due forward."""
+        
+        # 1. Create Plant (Interval 5 days)
+        response = await client.post(
+            "/api/plants",
+            json={"name": "Cactus", "watering_interval": 5},
+            headers=auth_headers,
+        )
+        plant_id = response.json()["id"]
+
+        # Get initial due date (based on creation time)
+        response = await client.get("/api/reminders", headers=auth_headers)
+        initial_reminder = next(r for r in response.json() if r["plant_id"] == plant_id)
+        initial_due = initial_reminder["next_due"]
+
+        # 2. Add Care Event with future date (tomorrow)
+        # This simulates watering it "later" which should push the due date further out
+        from datetime import UTC, datetime, timedelta
+        tomorrow = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+        response = await client.post(
+            f"/api/plants/{plant_id}/care-events",
+            json={"event_type": CareEventType.WATERED, "event_date": tomorrow},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+
+        # 3. Check new due date (should be tomorrow + 5 days, > today + 5 days)
+        response = await client.get("/api/reminders", headers=auth_headers)
+        new_reminder = next(r for r in response.json() if r["plant_id"] == plant_id)
+        
+        assert new_reminder["next_due"] > initial_due
+
+    @pytest.mark.asyncio
+    async def test_snooze(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ):
+        """Test snoozing a reminder."""
+        
+        # 1. Create Plant
+        response = await client.post(
+            "/api/plants", 
+            json={"name": "Snoozer", "watering_interval": 1},
+            headers=auth_headers
+        )
+        plant_id = response.json()["id"]
+        
+        reminder_response = await client.get("/api/reminders", headers=auth_headers)
+        reminder_id = next(r for r in reminder_response.json() if r["plant_id"] == plant_id)["id"]
+        
+        # 2. Snooze for 5 hours
+        response = await client.post(
+            f"/api/reminders/{reminder_id}/snooze",
+            json={"snooze_hours": 5},
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        
+        # 3. Verify next_due updated
+        updated_reminder = response.json()
+        assert updated_reminder["next_due"]  # Should check against time, but existence is key

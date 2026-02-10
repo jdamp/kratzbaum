@@ -27,6 +27,11 @@ class Plant(SQLModel, table=True):
     pot_id: UUID | None = Field(default=None, foreign_key="pots.id")
     name: str = Field(max_length=100, index=True)
     species: str | None = Field(default=None, max_length=200)
+
+    # Per-plant reminder overrides (nullable = use global default)
+    watering_interval: int | None = Field(default=None)
+    fertilizing_interval: int | None = Field(default=None)
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False),

@@ -15,6 +15,9 @@ erDiagram
         int id PK "always 1"
         string username
         string password_hash
+        int default_watering_interval "nullable"
+        int default_fertilizing_interval "nullable"
+        time preferred_reminder_time
         datetime created_at
         datetime updated_at
     }
@@ -32,6 +35,8 @@ erDiagram
         uuid pot_id FK "nullable"
         string name
         string species "nullable"
+        int watering_interval "nullable"
+        int fertilizing_interval "nullable"
         datetime created_at
         datetime updated_at
     }
@@ -74,14 +79,8 @@ erDiagram
         uuid id PK
         uuid plant_id FK
         enum reminder_type "WATERING|FERTILIZING"
-        enum frequency_type "DAILY|INTERVAL|WEEKLY|SPECIFIC_DAYS"
-        int frequency_value "nullable"
-        json specific_days "nullable"
-        time preferred_time
-        boolean is_enabled
-        int dormant_start "nullable, month 1-12"
-        int dormant_end "nullable, month 1-12"
         datetime next_due
+        boolean is_enabled
         datetime created_at
         datetime updated_at
     }
@@ -110,6 +109,9 @@ erDiagram
 | id | INTEGER | PK, DEFAULT 1 | Always 1 (singleton) |
 | username | VARCHAR(50) | NOT NULL | Login username |
 | password_hash | VARCHAR(255) | NOT NULL | bcrypt hashed password |
+| default_watering_interval | INTEGER | NULLABLE | Default days between watering |
+| default_fertilizing_interval | INTEGER | NULLABLE | Default days between fertilizing |
+| preferred_reminder_time | TIME | NOT NULL, DEFAULT '09:00' | When to send notifications |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Creation timestamp |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Last update timestamp |
 
@@ -129,6 +131,8 @@ erDiagram
 | pot_id | UUID | FK → pots.id, NULLABLE | Assigned pot |
 | name | VARCHAR(100) | NOT NULL | User-defined name |
 | species | VARCHAR(200) | NULLABLE | Scientific/common name |
+| watering_interval | INTEGER | NULLABLE | Custom watering interval in days |
+| fertilizing_interval | INTEGER | NULLABLE | Custom fertilizing interval in days |
 | created_at | TIMESTAMPTZ | NOT NULL | Creation timestamp |
 | updated_at | TIMESTAMPTZ | NOT NULL | Last update timestamp |
 
@@ -176,14 +180,8 @@ erDiagram
 | id | UUID | PK | Primary key |
 | plant_id | UUID | FK → plants.id, ON DELETE CASCADE | Parent plant |
 | reminder_type | VARCHAR(20) | NOT NULL | WATERING or FERTILIZING |
-| frequency_type | VARCHAR(20) | NOT NULL | DAILY, INTERVAL, WEEKLY, SPECIFIC_DAYS |
-| frequency_value | INTEGER | NULLABLE | Days interval |
-| specific_days | JSONB | NULLABLE | Array of weekdays [0-6] |
-| preferred_time | TIME | NOT NULL | Time of day for reminder |
-| is_enabled | BOOLEAN | NOT NULL, DEFAULT TRUE | Active flag |
-| dormant_start | SMALLINT | NULLABLE | Month 1-12 when to pause |
-| dormant_end | SMALLINT | NULLABLE | Month 1-12 when to resume |
 | next_due | TIMESTAMPTZ | NOT NULL | Next scheduled notification |
+| is_enabled | BOOLEAN | NOT NULL, DEFAULT TRUE | Active flag |
 | created_at | TIMESTAMPTZ | NOT NULL | Creation timestamp |
 | updated_at | TIMESTAMPTZ | NOT NULL | Last update timestamp |
 
