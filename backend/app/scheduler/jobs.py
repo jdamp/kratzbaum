@@ -43,7 +43,11 @@ async def check_due_reminders() -> None:
         for reminder in due_reminders:
             # Check if we recently notified (anti-spam: once every 24h)
             if reminder.last_notified:
-                time_since = now - reminder.last_notified
+                last_notified = reminder.last_notified
+                if last_notified.tzinfo is None:
+                    last_notified = last_notified.replace(tzinfo=UTC)
+                
+                time_since = now - last_notified
                 if time_since < timedelta(hours=24):
                     continue
 
