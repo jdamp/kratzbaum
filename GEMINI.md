@@ -1,4 +1,4 @@
-# AGENTS.md
+# GEMINI.md
 
 Guidelines for AI coding agents working on the Kratzbaum repository.
 
@@ -14,7 +14,7 @@ Guidelines for AI coding agents working on the Kratzbaum repository.
 
 **Target Platform:** Progressive Web App (PWA) for iPhone and desktop browsers.
 
-**Architecture:** FastAPI backend + SvelteKit frontend (planned), deployed via Docker Compose.
+**Architecture:** FastAPI backend + SvelteKit frontend (TailwindCSS v4, Skeleton UI), deployed via Docker Compose.
 
 
 ## Core Commands
@@ -35,6 +35,24 @@ uv run pytest -v
 
 # Run specific test file
 uv run pytest tests/test_security.py -v
+```
+
+### Frontend Development
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run Svelte check (Type checking)
+npm run check
 ```
 
 ### Docker
@@ -93,22 +111,27 @@ kratzbaum/
 │   ├── app/
 │   │   ├── main.py           # FastAPI app entry point + scheduler
 │   │   ├── core/             # Config, database, security utilities
-│   │   ├── models/           # SQLModel database models
-│   │   ├── api/              # API route handlers
+│   │   ├── models/           # SQLModel database models (plant, pot, reminder, etc.)
+│   │   ├── api/              # API route handlers (auth, plants, pots, reminders, settings)
 │   │   ├── services/         # Business logic (file uploads, PlantNet, push)
 │   │   └── scheduler/        # APScheduler jobs
 │   ├── tests/                # pytest tests
 │   ├── uploads/              # Uploaded photos (gitignored)
 │   └── pyproject.toml        # uv project config
-├── frontend/                 # SvelteKit app (planned)
+├── frontend/                 # SvelteKit app
+│   ├── src/
+│   │   ├── routes/           # Application pages (+page.svelte, +layout.svelte)
+│   │   └── lib/              # Shared components and utilities
+│   ├── static/               # Static assets
+│   ├── package.json          # Frontend dependencies and scripts
+│   └── svelte.config.js      # SvelteKit configuration
 ├── docs/
 │   ├── 00_project_context.md # Vision, tech stack, decisions
 │   ├── 01_features/          # Feature specifications
 │   ├── 02_technical/         # Architecture, schema, API contracts
 │   └── 03_ui_ux/             # Style guide, user flows
 ├── docker-compose.yml
-└── AGENTS.md                 # This file
-```
+└── GEMINI.md                 # This file
 
 ### Key Files
 
@@ -118,6 +141,8 @@ kratzbaum/
 | `backend/app/core/config.py` | Environment variables via Pydantic Settings |
 | `backend/app/core/security.py` | JWT tokens, password hashing |
 | `backend/app/api/deps.py` | FastAPI dependencies (auth, database) |
+| `frontend/src/routes/+page.svelte` | Frontend Home Page |
+| `frontend/package.json` | Frontend dependencies and scripts |
 | `docs/02_technical/database_schema.md` | Entity relationships and table definitions |
 | `docs/02_technical/api_contracts.md` | API endpoint specifications |
 
