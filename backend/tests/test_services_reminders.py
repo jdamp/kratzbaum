@@ -1,18 +1,21 @@
 
+from datetime import UTC, datetime, time, timedelta
+
 import pytest
-from datetime import datetime, time, timedelta, timezone
 from sqlmodel import select
-from app.models import Plant, Reminder, ReminderType, CareEventType, Settings, CareEvent
-from app.services.reminders import update_plant_reminders, _update_single_reminder
+
+from app.models import CareEvent, CareEventType, Plant, Reminder, ReminderType, Settings
+from app.services.reminders import _update_single_reminder, update_plant_reminders
+
 
 @pytest.mark.asyncio
 async def test_update_plant_reminders_creates_new(db_session):
     # Setup
     plant = Plant(name="Test Plant", species="Test Species")
     db_session.add(plant)
-    
+
     settings = Settings(
-        default_watering_interval=7, 
+        default_watering_interval=7,
         default_fertilizing_interval=14,
         username="test",
         password_hash="hash"
@@ -28,18 +31,19 @@ async def test_update_plant_reminders_creates_new(db_session):
     reminders = await db_session.exec(select(Reminder).where(Reminder.plant_id == plant.id))
     reminders_list = reminders.all()
     assert len(reminders_list) == 2
-    
+
     watering = next(r for r in reminders_list if r.reminder_type == ReminderType.WATERING)
     assert watering.is_enabled
     # next_due should be created_at + 7 days (approx)
-    assert watering.next_due.replace(tzinfo=None) > datetime.now(timezone.utc).replace(tzinfo=None)
+    assert watering.next_due.replace(tzinfo=None) > datetime.now(UTC).replace(tzinfo=None)
 
 @pytest.mark.asyncio
 async def test_update_plant_reminders_respects_intervals(db_session):
-    plant = Plant(name="Test Plant", watering_interval=3, fertilizing_interval=None) # Override watering
+    # Override watering
+    plant = Plant(name="Test Plant", watering_interval=3, fertilizing_interval=None)
     db_session.add(plant)
     settings = Settings(
-        default_watering_interval=7, 
+        default_watering_interval=7,
         default_fertilizing_interval=14,
         username="test",
         password_hash="hash"
@@ -52,7 +56,7 @@ async def test_update_plant_reminders_respects_intervals(db_session):
 
     reminders = await db_session.exec(select(Reminder).where(Reminder.plant_id == plant.id))
     reminders_list = reminders.all()
-    
+
     watering = next(r for r in reminders_list if r.reminder_type == ReminderType.WATERING)
     fertilizing = next(r for r in reminders_list if r.reminder_type == ReminderType.FERTILIZING)
 
@@ -75,7 +79,7 @@ async def test_update_single_reminder_removes_disabled(db_session):
     reminder = Reminder(
         plant_id=plant.id,
         reminder_type=ReminderType.WATERING,
-        next_due=datetime.now(timezone.utc),
+        next_due=datetime.now(UTC),
         is_enabled=True
     )
     db_session.add(reminder)
@@ -102,7 +106,7 @@ async def test_update_single_reminder_calculates_from_event(db_session):
     await db_session.refresh(plant)
 
     # Add a care event 2 days ago
-    event_date = datetime.now(timezone.utc) - timedelta(days=2)
+    event_date = datetime.now(UTC) - timedelta(days=2)
     event = CareEvent(
         plant_id=plant.id,
         event_type=CareEventType.WATERED,
@@ -124,9 +128,9 @@ async def test_update_single_reminder_calculates_from_event(db_session):
     result = await db_session.exec(select(Reminder).where(Reminder.plant_id == plant.id))
     reminder = result.first()
     assert reminder
-    
+
     # Expected: event_date + 5 days, at 10:00 UTC (simplified logic from service)
     expected_date = event_date + timedelta(days=5)
-    expected_dt = datetime.combine(expected_date.date(), time(10, 0)).replace(tzinfo=timezone.utc)
-    
+    expected_dt = datetime.combine(expected_date.date(), time(10, 0)).replace(tzinfo=UTC)
+
     assert reminder.next_due.replace(tzinfo=None) == expected_dt.replace(tzinfo=None)

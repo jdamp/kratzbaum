@@ -38,7 +38,7 @@ class TestRemindersIntegration:
         # 3. Check for generated reminder
         response = await client.get("/api/reminders", headers=auth_headers)
         reminders = response.json()
-        
+
         # Should have 1 watering reminder (fertilizing is null globally)
         assert len(reminders) == 1
         reminder = reminders[0]
@@ -65,13 +65,13 @@ class TestRemindersIntegration:
         # 2. Check Reminder
         response = await client.get("/api/reminders", headers=auth_headers)
         reminders = response.json()
-        
+
         # Find our plant's reminder
         reminder = next(r for r in reminders if r["plant_id"] == plant_id)
         assert reminder["reminder_type"] == ReminderType.WATERING
         # Next due should be roughly 3 days from now
         # We can't easily assert exact time, but existence proves it worked.
-        
+
         # 3. Update Plant to remove override (set to null)
         # First ensure global setting is null (default)
         await client.put(
@@ -79,7 +79,7 @@ class TestRemindersIntegration:
             json={"default_watering_interval": None},
             headers=auth_headers,
         )
-        
+
         response = await client.put(
             f"/api/plants/{plant_id}",
             json={"watering_interval": None},
@@ -97,7 +97,7 @@ class TestRemindersIntegration:
         self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test that adding a care event pushes next_due forward."""
-        
+
         # 1. Create Plant (Interval 5 days)
         response = await client.post(
             "/api/plants",
@@ -125,7 +125,7 @@ class TestRemindersIntegration:
         # 3. Check new due date (should be tomorrow + 5 days, > today + 5 days)
         response = await client.get("/api/reminders", headers=auth_headers)
         new_reminder = next(r for r in response.json() if r["plant_id"] == plant_id)
-        
+
         assert new_reminder["next_due"] > initial_due
 
     @pytest.mark.asyncio
@@ -133,18 +133,18 @@ class TestRemindersIntegration:
         self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test snoozing a reminder."""
-        
+
         # 1. Create Plant
         response = await client.post(
-            "/api/plants", 
+            "/api/plants",
             json={"name": "Snoozer", "watering_interval": 1},
             headers=auth_headers
         )
         plant_id = response.json()["id"]
-        
+
         reminder_response = await client.get("/api/reminders", headers=auth_headers)
         reminder_id = next(r for r in reminder_response.json() if r["plant_id"] == plant_id)["id"]
-        
+
         # 2. Snooze for 5 hours
         response = await client.post(
             f"/api/reminders/{reminder_id}/snooze",
@@ -152,7 +152,7 @@ class TestRemindersIntegration:
             headers=auth_headers
         )
         assert response.status_code == 200
-        
+
         # 3. Verify next_due updated
         updated_reminder = response.json()
         assert updated_reminder["next_due"]  # Should check against time, but existence is key

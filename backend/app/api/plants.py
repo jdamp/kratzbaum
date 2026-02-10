@@ -475,6 +475,6 @@ async def delete_care_event(
 
     await db.delete(event)
     await db.commit()
-    
+
     # Recalculate reminders (might revert to previous event or creation date)
     await update_plant_reminders(db, plant_id)

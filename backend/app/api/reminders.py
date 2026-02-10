@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import select
 
@@ -40,12 +40,12 @@ async def list_reminders(
 ) -> list[ReminderResponse]:
     """
     List reminders.
-    
+
     If upcoming_only is True, returns only enabled reminders due within 'days'.
     Otherwise returns all reminders sorted by due date.
     """
     query = select(Reminder)
-    
+
     if upcoming_only:
         cutoff = datetime.now(UTC) + timedelta(days=days)
         # Filter for enabled and due before cutoff
@@ -53,9 +53,9 @@ async def list_reminders(
             Reminder.is_enabled == True,  # noqa: E712
             Reminder.next_due <= cutoff
         )
-    
+
     query = query.order_by(Reminder.next_due)
-    
+
     result = await db.exec(query)
     reminders = result.all()
 
@@ -63,7 +63,7 @@ async def list_reminders(
     for r in reminders:
         plant_result = await db.exec(select(Plant).where(Plant.id == r.plant_id))
         plant = plant_result.first()
-        
+
         # If plant is deleted but reminder remains (shouldn't happen with cascade), skip
         if not plant:
             continue
@@ -141,23 +141,23 @@ async def delete_reminder(
     _user: CurrentUser,
 ) -> None:
     """
-    delete/disable a reminder. 
-    
+    delete/disable a reminder.
+
     Actually, since reminders are auto-calculated, "deleting" it might just
-    mean it comes back if we recalculate. 
+    mean it comes back if we recalculate.
     Ideally, we should toggle `is_enabled=False`.
-    But for now, sticking to standard CRUD delete. 
+    But for now, sticking to standard CRUD delete.
     NOTE: If the user refreshes settings or adds care events, it might reappear.
     To permanently disable, they should remove the interval override on the plant/settings.
     """
     result = await db.exec(select(Reminder).where(Reminder.id == reminder_id))
     reminder = result.first()
-    
+
     if not reminder:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reminder not found",
         )
-        
+
     await db.delete(reminder)
     await db.commit()

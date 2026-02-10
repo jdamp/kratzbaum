@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import Column, DateTime
-
 from sqlmodel import Field, SQLModel
 
 

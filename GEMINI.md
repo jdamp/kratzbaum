@@ -164,6 +164,7 @@ kratzbaum/
 4. Add tests in `backend/tests/`
 5. Update `docs/02_technical/api_contracts.md` if adding endpoints
 
+
 ### Important Conventions
 
 - **Single-user system** — No `user_id` foreign keys on most models

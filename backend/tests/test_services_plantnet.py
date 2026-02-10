@@ -1,8 +1,10 @@
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from app.services.plantnet import identify_plant
-from app.core.config import Settings
+
 
 @pytest.fixture
 def mock_settings():
@@ -31,12 +33,12 @@ async def test_identify_plant_success(mock_settings):
     with patch("httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__.return_value = mock_client
-        
+
         # Setup response
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
-        
+
         # When called, return mock_response (awaitable)
         mock_client.post.return_value = mock_response
 
@@ -60,11 +62,11 @@ async def test_identify_plant_api_error(mock_settings):
     with patch("httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__.return_value = mock_client
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 400
         mock_response.json.return_value = {}
-        
+
         mock_client.post.return_value = mock_response
 
         result = await identify_plant(b"image_data")

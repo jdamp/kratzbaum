@@ -18,7 +18,7 @@ async def check_due_reminders() -> None:
     """
     async with async_session_factory() as session:
         now = datetime.now(UTC)
-        
+
         # Get all enabled reminders that are due
         # We don't filter by last_notified in SQL to keep it simple,
         # we filter in Python.
@@ -46,7 +46,7 @@ async def check_due_reminders() -> None:
                 last_notified = reminder.last_notified
                 if last_notified.tzinfo is None:
                     last_notified = last_notified.replace(tzinfo=UTC)
-                
+
                 time_since = now - last_notified
                 if time_since < timedelta(hours=24):
                     continue
@@ -67,7 +67,7 @@ async def check_due_reminders() -> None:
                     plant_name=plant.name,
                     reminder_type=reminder.reminder_type.value,
                 )
-            
+
             # Update last_notified
             reminder.last_notified = now
             session.add(reminder)

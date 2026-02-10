@@ -3,7 +3,6 @@
 from datetime import UTC, datetime, time
 
 from sqlalchemy import Column, DateTime, Time
-
 from sqlmodel import Field, SQLModel
 
 
