@@ -22,6 +22,7 @@
 
 	let availablePots: Pot[] = $state([]);
 	let isSubmitting = $state(false);
+	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
 	// Species identification state
@@ -34,6 +35,8 @@
 			availablePots = await potService.getAvailablePots();
 		} catch (err) {
 			console.error('Failed to fetch pots:', err);
+		} finally {
+			isLoading = false;
 		}
 	});
 
@@ -123,14 +126,20 @@
 	}
 </script>
 
-<div class="space-y-6">
-	<a href="/" class="inline-flex items-center gap-2 text-primary-600 hover:underline">
-		<ArrowLeft class="w-4 h-4" />
-		Back to Plants
-	</a>
+{#if isLoading}
+	<div class="animate-pulse space-y-4">
+		<div class="h-8 bg-surface-200 rounded w-1/4"></div>
+		<div class="h-48 bg-surface-200 rounded-lg"></div>
+	</div>
+{:else}
+	<div class="space-y-6">
+		<a href="/" class="inline-flex items-center gap-2 text-primary-600 hover:underline">
+			<ArrowLeft class="w-4 h-4" />
+			Back to Plants
+		</a>
 
-	<div class="card p-6 bg-surface-50">
-		<h1 class="text-2xl font-bold mb-6">Add New Plant</h1>
+		<div class="card p-6 bg-surface-50 max-w-2xl mx-auto">
+			<h1 class="text-2xl font-bold mb-6">Add New Plant</h1>
 
 		<form onsubmit={handleSubmit} class="space-y-6">
 			<!-- Photo Upload -->
@@ -257,5 +266,6 @@
 				</button>
 			</div>
 		</form>
+		</div>
 	</div>
-</div>
+{/if}

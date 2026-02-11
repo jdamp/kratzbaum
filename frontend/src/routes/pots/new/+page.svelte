@@ -103,7 +103,7 @@
 			{isEditMode ? 'Back to Pot' : 'Back to Pots'}
 		</a>
 
-		<div class="card p-6 bg-surface-50">
+		<div class="card p-6 bg-surface-50 max-w-2xl mx-auto">
 			<h1 class="text-2xl font-bold mb-6">{isEditMode ? 'Edit Pot' : 'Add New Pot'}</h1>
 
 			<form onsubmit={handleSubmit} class="space-y-6">
