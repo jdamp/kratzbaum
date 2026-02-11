@@ -18,8 +18,8 @@ erDiagram
         int default_watering_interval "nullable"
         int default_fertilizing_interval "nullable"
         time preferred_reminder_time
-        datetime created_at
-        datetime updated_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     PushSubscription {
@@ -79,10 +79,11 @@ erDiagram
         uuid id PK
         uuid plant_id FK
         enum reminder_type "WATERING|FERTILIZING"
-        datetime next_due
+        timestamptz next_due
         boolean is_enabled
-        datetime created_at
-        datetime updated_at
+        timestamptz last_notified "nullable"
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     PlantIdentification {
@@ -182,6 +183,7 @@ erDiagram
 | reminder_type | VARCHAR(20) | NOT NULL | WATERING or FERTILIZING |
 | next_due | TIMESTAMPTZ | NOT NULL | Next scheduled notification |
 | is_enabled | BOOLEAN | NOT NULL, DEFAULT TRUE | Active flag |
+| last_notified | TIMESTAMPTZ | NULLABLE | Last time a notification was sent |
 | created_at | TIMESTAMPTZ | NOT NULL | Creation timestamp |
 | updated_at | TIMESTAMPTZ | NOT NULL | Last update timestamp |
 
@@ -245,74 +247,13 @@ class Settings(SQLModel, table=True):
     id: int = Field(default=1, primary_key=True)
     username: str = Field(max_length=50)
     password_hash: str = Field(max_length=255)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class PushSubscription(SQLModel, table=True):
-    """Push notification subscription from PWA."""
-    __tablename__ = "push_subscriptions"
     
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    endpoint: str = Field(max_length=500, unique=True)
-    p256dh_key: str = Field(max_length=255)
-    auth_key: str = Field(max_length=255)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class Pot(SQLModel, table=True):
-    __tablename__ = "pots"
+    default_watering_interval: Optional[int] = Field(default=None)
+    default_fertilizing_interval: Optional[int] = Field(default=None)
+    preferred_reminder_time: time = Field(default=time(9, 0))
     
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    name: str = Field(max_length=100)
-    diameter_cm: float
-    height_cm: float
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    photos: List["PotPhoto"] = Relationship(back_populates="pot")
-    plant: Optional["Plant"] = Relationship(back_populates="pot")
-
-
-class Plant(SQLModel, table=True):
-    __tablename__ = "plants"
-    
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    pot_id: Optional[UUID] = Field(foreign_key="pots.id", default=None)
-    name: str = Field(max_length=100, index=True)
-    species: Optional[str] = Field(max_length=200, default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    pot: Optional[Pot] = Relationship(back_populates="plant")
-    photos: List["PlantPhoto"] = Relationship(back_populates="plant")
-    care_events: List["CareEvent"] = Relationship(back_populates="plant")
-    reminders: List["Reminder"] = Relationship(back_populates="plant")
-
-
-class PlantPhoto(SQLModel, table=True):
-    __tablename__ = "plant_photos"
-    
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    plant_id: UUID = Field(foreign_key="plants.id", ondelete="CASCADE")
-    file_path: str = Field(max_length=500)
-    is_primary: bool = Field(default=False)
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    plant: Plant = Relationship(back_populates="photos")
-
-
-class CareEvent(SQLModel, table=True):
-    __tablename__ = "care_events"
-    
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    plant_id: UUID = Field(foreign_key="plants.id", ondelete="CASCADE")
-    event_type: CareEventType
-    event_date: datetime
-    notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    plant: Plant = Relationship(back_populates="care_events")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
 
 
 class Reminder(SQLModel, table=True):
@@ -321,16 +262,11 @@ class Reminder(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     plant_id: UUID = Field(foreign_key="plants.id", ondelete="CASCADE")
     reminder_type: ReminderType
-    frequency_type: FrequencyType
-    frequency_value: Optional[int] = None  # days interval
-    specific_days: Optional[List[int]] = Field(default=None, sa_type=JSONB)
-    preferred_time: time
+    next_due: datetime = Field(sa_column=Column(DateTime(timezone=True)))
     is_enabled: bool = Field(default=True)
-    dormant_start: Optional[int] = None  # month 1-12
-    dormant_end: Optional[int] = None    # month 1-12
-    next_due: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    last_notified: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
     
     plant: Plant = Relationship(back_populates="reminders")
 ```
