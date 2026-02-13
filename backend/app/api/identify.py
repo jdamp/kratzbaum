@@ -4,8 +4,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
+from sqlmodel import select
 
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentUser, DbSession
+from app.models import Settings
 from app.services.plantnet import identify_plant
 
 router = APIRouter(prefix="/identify", tags=["identify"])
@@ -28,12 +30,14 @@ class IdentifyResponse(BaseModel):
 
     results: list[IdentificationResult] = Field(default_factory=list)
     error: str | None = None
+    error_code: str | None = None
     remaining_identifications: int | None = None
 
 
 @router.post("", response_model=IdentifyResponse)
 async def identify(
     _user: CurrentUser,
+    db: DbSession,
     image: Annotated[UploadFile, File(...)],
     organ: Annotated[str, Form()] = "leaf",
 ) -> IdentifyResponse:
@@ -58,5 +62,13 @@ async def identify(
             detail="Uploaded file is empty",
         )
 
-    result = await identify_plant(image_data=image_data, organ=normalized_organ)
+    settings_result = await db.exec(select(Settings).where(Settings.id == 1))
+    settings = settings_result.first()
+    api_key = settings.plantnet_api_key if settings else None
+
+    result = await identify_plant(
+        image_data=image_data,
+        organ=normalized_organ,
+        api_key=api_key,
+    )
     return IdentifyResponse.model_validate(result)

@@ -61,11 +61,13 @@ class TestIdentifyEndpoint:
                 }
             ],
             "error": None,
+            "error_code": None,
             "remaining_identifications": 91,
         }
         mock_identify.assert_awaited_once_with(
             image_data=b"fake-image",
             organ="leaf",
+            api_key=None,
         )
 
     @pytest.mark.asyncio
@@ -126,6 +128,7 @@ class TestIdentifyEndpoint:
         """Endpoint should pass service errors in response body."""
         mock_payload = {
             "error": "PlantNet API key not configured",
+            "error_code": "MISSING_API_KEY",
             "results": [],
         }
 
@@ -144,5 +147,6 @@ class TestIdentifyEndpoint:
         assert response.json() == {
             "results": [],
             "error": "PlantNet API key not configured",
+            "error_code": "MISSING_API_KEY",
             "remaining_identifications": None,
         }

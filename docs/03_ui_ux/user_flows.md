@@ -192,33 +192,39 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Any Screen] --> B["Identify Button"]
-    B --> C[Capture/Select Photo]
-    C --> D[Select Organ Type]
-    D --> E["Leaf"]
-    D --> F["Flower"]
-    D --> G["Fruit"]
-    D --> H["Bark"]
-    
-    E --> I[Submit to API]
-    F --> I
-    G --> I
-    H --> I
-    
-    I --> J[Loading State]
-    J --> K{API Response}
-    K -->|Success| L[Show Top Results]
-    K -->|Error| M[Show Error + Retry]
-    
-    L --> N[Each Result Card]
-    N --> O[Score/Confidence]
-    N --> P[Scientific Name]
-    N --> Q[Common Names]
-    
-    L --> R{Select Species?}
-    R -->|Yes| S[Apply to Plant]
-    R -->|Cancel| T[Dismiss]
-    
-    S --> U[Plant Updated]
+    B --> C{PlantNet API Key Configured?}
+    C -->|No| C1[Show Missing-Key Notice]
+    C1 --> C2["Go to Settings"]
+    C2 --> C3[Save PlantNet API Key]
+    C3 --> C4[Return to Identify]
+    C -->|Yes| D[Capture/Select Photo]
+    D --> E[Select Organ Type]
+    E --> F["Leaf"]
+    E --> G["Flower"]
+    E --> H["Fruit"]
+    E --> I["Bark"]
+
+    F --> J[Submit to API]
+    G --> J
+    H --> J
+    I --> J
+
+    J --> K[Loading State]
+    K --> L{API Response}
+    L -->|Success| M[Show Top Results]
+    L -->|Missing Key| N[Show Missing-Key Error + Settings CTA]
+    L -->|Other Error| O[Show Error + Retry]
+
+    M --> P[Each Result Card]
+    P --> Q[Score/Confidence]
+    P --> R[Scientific Name]
+    P --> S[Common Names]
+
+    M --> T{Select Species?}
+    T -->|Yes| U[Apply to Plant]
+    T -->|Cancel| V[Dismiss]
+
+    U --> W[Plant Updated]
 ```
 
 ---

@@ -56,6 +56,28 @@ async def test_identify_plant_no_api_key():
         result = await identify_plant(b"image_data")
         assert "error" in result
         assert result["error"] == "PlantNet API key not configured"
+        assert result["error_code"] == "MISSING_API_KEY"
+
+
+@pytest.mark.asyncio
+async def test_identify_plant_prefers_explicit_api_key():
+    with patch("app.services.plantnet.settings", autospec=True) as mock_settings:
+        mock_settings.plantnet_api_key = None
+        mock_settings.plantnet_api_url = "https://my-api.plantnet.org/v2/identify/all"
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"results": []}
+            mock_client.post.return_value = mock_response
+
+            await identify_plant(b"image_data", api_key="override-key")
+
+            _, kwargs = mock_client.post.call_args
+            assert kwargs["params"]["api-key"] == "override-key"
 
 @pytest.mark.asyncio
 async def test_identify_plant_api_error(mock_settings):

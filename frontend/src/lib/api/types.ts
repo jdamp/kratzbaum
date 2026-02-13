@@ -123,6 +123,31 @@ export interface ReminderSettingsUpdate {
 	preferred_reminder_time?: string;
 }
 
+export interface PlantNetSettings {
+	is_configured: boolean;
+	masked_api_key: string | null;
+	updated_at: string;
+}
+
+export interface PlantNetSettingsUpdate {
+	api_key: string;
+}
+
+export interface IdentificationResult {
+	score: number;
+	scientific_name: string;
+	common_names: string[];
+	family: string;
+	genus: string;
+}
+
+export interface IdentifyResponse {
+	results: IdentificationResult[];
+	error?: string | null;
+	error_code?: string | null;
+	remaining_identifications?: number | null;
+}
+
 export interface AuthResponse {
 	access_token: string;
 	token_type: string;

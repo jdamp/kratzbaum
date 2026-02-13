@@ -7,7 +7,11 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
-async def identify_plant(image_data: bytes, organ: str = "leaf") -> dict:
+async def identify_plant(
+    image_data: bytes,
+    organ: str = "leaf",
+    api_key: str | None = None,
+) -> dict:
     """
     Identify a plant using the PlantNet API.
 
@@ -18,9 +22,11 @@ async def identify_plant(image_data: bytes, organ: str = "leaf") -> dict:
     Returns:
         API response with identification results
     """
-    if not settings.plantnet_api_key:
+    key = api_key or settings.plantnet_api_key or None
+    if not key:
         return {
             "error": "PlantNet API key not configured",
+            "error_code": "MISSING_API_KEY",
             "results": [],
         }
 
@@ -28,7 +34,7 @@ async def identify_plant(image_data: bytes, organ: str = "leaf") -> dict:
         response = await client.post(
             settings.plantnet_api_url,
             params={
-                "api-key": settings.plantnet_api_key,
+                "api-key": key,
                 "include-related-images": "false",
                 "no-reject": "false",
                 "lang": "en",
