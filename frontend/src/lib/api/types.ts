@@ -11,13 +11,6 @@ export enum ReminderType {
 	FERTILIZING = 'FERTILIZING'
 }
 
-export enum FrequencyType {
-	DAILY = 'DAILY',
-	INTERVAL = 'INTERVAL',
-	WEEKLY = 'WEEKLY',
-	SPECIFIC_DAYS = 'SPECIFIC_DAYS'
-}
-
 export interface Plant {
 	id: UUID;
 	name: string;
@@ -89,20 +82,28 @@ export interface PotPhoto {
 	uploaded_at: string;
 }
 
-export interface Reminder {
+export interface ReminderListItem {
 	id: UUID;
 	plant_id: UUID;
+	plant_name: string;
 	reminder_type: ReminderType;
-	frequency_type: FrequencyType;
-	frequency_value: number | null;
-	specific_days: number[] | null;
-	preferred_time: string;
 	is_enabled: boolean;
-	dormant_start: number | null;
-	dormant_end: number | null;
 	next_due: string;
 	created_at: string;
-	updated_at: string;
+}
+
+export type Reminder = ReminderListItem;
+
+export interface ReminderSettings {
+	default_watering_interval: number | null;
+	default_fertilizing_interval: number | null;
+	preferred_reminder_time: string;
+}
+
+export interface ReminderSettingsUpdate {
+	default_watering_interval?: number | null;
+	default_fertilizing_interval?: number | null;
+	preferred_reminder_time?: string;
 }
 
 export interface AuthResponse {

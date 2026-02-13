@@ -1,48 +1,59 @@
 import { apiClient } from './client';
-import type { Reminder } from './types';
+import { ReminderType, type ReminderListItem } from './types';
+
+function isReminderListItem(value: unknown): value is ReminderListItem {
+	if (!value || typeof value !== 'object') {
+		return false;
+	}
+
+	const reminder = value as Record<string, unknown>;
+	return (
+		typeof reminder.id === 'string' &&
+		typeof reminder.plant_id === 'string' &&
+		typeof reminder.plant_name === 'string' &&
+		(reminder.reminder_type === ReminderType.WATERING ||
+			reminder.reminder_type === ReminderType.FERTILIZING) &&
+		typeof reminder.next_due === 'string' &&
+		typeof reminder.is_enabled === 'boolean' &&
+		typeof reminder.created_at === 'string'
+	);
+}
+
+function parseReminderList(payload: unknown): ReminderListItem[] {
+	if (!Array.isArray(payload) || !payload.every(isReminderListItem)) {
+		throw new Error('Invalid reminder list response from API');
+	}
+
+	return payload;
+}
+
+function parseReminder(payload: unknown): ReminderListItem {
+	if (!isReminderListItem(payload)) {
+		throw new Error('Invalid reminder response from API');
+	}
+
+	return payload;
+}
 
 export const reminderService = {
-	getReminders: () => {
-		return apiClient.get<Reminder[]>(`/reminders`);
+	getReminders: async () => {
+		const response = await apiClient.get<unknown>(`/reminders`);
+		return parseReminderList(response);
 	},
 
-	getUpcomingReminders: () => {
-		return apiClient.get<Reminder[]>(`/reminders/upcoming`);
-	},
-
-	getOverdueReminders: () => {
-		return apiClient.get<Reminder[]>(`/reminders/overdue`);
-	},
-
-	getReminder: (id: string) => {
-		return apiClient.get<Reminder>(`/reminders/${id}`);
-	},
-
-	createReminder: (data: any) => {
-		return apiClient.post<Reminder>('/reminders', data);
-	},
-
-	updateReminder: (id: string, data: any) => {
-		return apiClient.put<Reminder>(`/reminders/${id}`, data);
+	getUpcomingReminders: async (days: number = 7) => {
+		const response = await apiClient.get<unknown>(`/reminders/upcoming?days=${days}`);
+		return parseReminderList(response);
 	},
 
 	deleteReminder: (id: string) => {
 		return apiClient.delete(`/reminders/${id}`);
 	},
 
-	completeReminder: (id: string) => {
-		return apiClient.post(`/reminders/${id}/complete`);
-	},
-
-	snoozeReminder: (id: string, hours: number) => {
-		return apiClient.post(`/reminders/${id}/snooze`, { snooze_hours: hours });
-	},
-
-	subscribeToPush: (subscription: PushSubscription) => {
-		return apiClient.post('/push/subscribe', subscription);
-	},
-
-	unsubscribeFromPush: (endpoint: string) => {
-		return apiClient.delete(`/push/subscribe?endpoint=${encodeURIComponent(endpoint)}`);
+	snoozeReminder: async (id: string, hours: number) => {
+		const response = await apiClient.post<unknown>(`/reminders/${id}/snooze`, {
+			snooze_hours: hours
+		});
+		return parseReminder(response);
 	}
 };

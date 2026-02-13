@@ -236,22 +236,43 @@ Get care history.
 ### GET /reminders
 List all reminders.
 
-### POST /reminders
-Create a reminder.
-
-**Request:**
+**Response (200):**
 ```json
-{
-  "plant_id": "550e8400-e29b-41d4-a716-446655440000",
-  "reminder_type": "WATERING",
-  "frequency_type": "INTERVAL",
-  "frequency_value": 3,
-  "preferred_time": "09:00:00"
-}
+[
+  {
+    "id": "880e8400-e29b-41d4-a716-446655440003",
+    "plant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "plant_name": "My Monstera",
+    "reminder_type": "WATERING",
+    "next_due": "2024-01-17T09:00:00Z",
+    "is_enabled": true,
+    "created_at": "2024-01-01T10:30:00Z"
+  }
+]
 ```
 
-### POST /reminders/{id}/complete
-Mark reminder complete.
+### GET /reminders/upcoming
+List enabled reminders due within the next `days` (default: `7`).
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| days | integer | Number of days to include (default `7`) |
+
+**Response (200):**
+```json
+[
+  {
+    "id": "880e8400-e29b-41d4-a716-446655440003",
+    "plant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "plant_name": "My Monstera",
+    "reminder_type": "WATERING",
+    "next_due": "2024-01-17T09:00:00Z",
+    "is_enabled": true,
+    "created_at": "2024-01-01T10:30:00Z"
+  }
+]
+```
 
 ### POST /reminders/{id}/snooze
 Snooze reminder.
@@ -262,6 +283,24 @@ Snooze reminder.
   "snooze_hours": 3
 }
 ```
+
+**Response (200):**
+```json
+{
+  "id": "880e8400-e29b-41d4-a716-446655440003",
+  "plant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "plant_name": "My Monstera",
+  "reminder_type": "WATERING",
+  "next_due": "2024-01-15T13:00:00Z",
+  "is_enabled": true,
+  "created_at": "2024-01-01T10:30:00Z"
+}
+```
+
+### DELETE /reminders/{id}
+Delete a reminder.
+
+**Response (204):** No content
 
 ---
 
