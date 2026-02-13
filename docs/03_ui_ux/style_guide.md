@@ -48,9 +48,28 @@ colors: {
 |------|----------------|-------|
 | Water | `text-sky-500` | Watering actions |
 | Fertilize | `text-amber-500` | Fertilizing actions |
+| Repot | `text-green-500` | Repotting actions |
 | Success | `text-green-500` | Confirmations |
 | Warning | `text-amber-500` | Overdue reminders |
 | Error | `text-red-500` | Errors |
+
+### Action Button Variants
+
+Use explicit color variants for care quick actions instead of neutral grey styles:
+
+| Action | Recommended Button Style | Notes |
+|--------|---------------------------|-------|
+| Water | `btn variant-filled-primary` (or equivalent blue semantic style) | Primary quick action |
+| Fertilize | `btn variant-soft` + amber icon/text treatment | Must not appear neutral/grey |
+| Repot | `btn variant-soft` + green icon/text treatment | Must not appear neutral/grey |
+
+### Interaction Feedback States
+
+Quick action buttons must expose three transient interaction states:
+
+1. `pending`: disabled button, reduced opacity, optional spinner icon.
+2. `success`: temporary success treatment (check icon or success tint) for ~600-1200ms.
+3. `error`: temporary error treatment and user-visible message.
 
 ---
 

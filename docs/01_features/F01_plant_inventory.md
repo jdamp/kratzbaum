@@ -16,6 +16,10 @@ Users can maintain a comprehensive inventory of their plants, tracking essential
 - Support sorting by name, species, or last watered date
 - Support filtering by species or care status (needs water, needs fertilizer)
 - Support searching plants by name
+- Plant-card quick actions (`Water`, `Fertilize`) provide immediate visual feedback on press:
+  - show a temporary in-progress state while request is running
+  - show a short success state once saved
+  - show an error state/message when request fails
 
 ### US-02: Add New Plant
 **As a** user  
@@ -39,6 +43,10 @@ Users can maintain a comprehensive inventory of their plants, tracking essential
 - Display care timeline (watered, fertilized, repotted events)
 - Show assigned pot (if any) as a clickable link to pot details
 - Quick actions: Water, Fertilize, Repot
+- Quick action color mapping is explicit and consistent:
+  - `Water` uses water semantic color (blue)
+  - `Fertilize` uses fertilizer semantic color (amber)
+  - `Repot` uses repot semantic color (green)
 
 ### US-04: Update Plant Information
 **As a** user  
@@ -62,6 +70,7 @@ Users can maintain a comprehensive inventory of their plants, tracking essential
 - Default to current date/time, but allow backdating
 - Optional notes field for care events
 - Update "last watered/fertilized/repotted" automatically
+- After submitting a care event from a quick action, the originating button shows a visible confirmation state before returning to default.
 
 ### US-06: Delete Plant
 **As a** user  
