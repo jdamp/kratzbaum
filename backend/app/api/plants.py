@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, DbSession
-from app.models import CareEvent, CareEventType, Plant, PlantPhoto
+from app.models import CareEvent, CareEventType, Plant, PlantPhoto, Pot
 from app.services.files import save_upload_file
 from app.services.reminders import update_plant_reminders
 
@@ -86,6 +86,36 @@ class CareEventResponse(BaseModel):
     created_at: datetime
 
 
+async def validate_pot_assignment(
+    db: DbSession,
+    pot_id: UUID,
+    current_plant_id: UUID | None = None,
+) -> None:
+    """Ensure pot exists and is not assigned to another plant."""
+    pot_result = await db.exec(select(Pot).where(Pot.id == pot_id))
+    pot = pot_result.first()
+    if not pot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pot not found",
+        )
+
+    assignment_query = select(Plant).where(Plant.pot_id == pot_id)
+    if current_plant_id is not None:
+        assignment_query = assignment_query.where(Plant.id != current_plant_id)
+
+    assigned_result = await db.exec(assignment_query)
+    assigned_plant = assigned_result.first()
+    if assigned_plant:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Pot is already assigned to plant '{assigned_plant.name}'. "
+                "Unassign it first."
+            ),
+        )
+
+
 @router.get("", response_model=list[PlantResponse])
 async def list_plants(
     db: DbSession,
@@ -146,6 +176,9 @@ async def create_plant(
     _user: CurrentUser,
 ) -> PlantResponse:
     """Create a new plant."""
+    if request.pot_id is not None:
+        await validate_pot_assignment(db, request.pot_id)
+
     plant = Plant(
         name=request.name,
         species=request.species,
@@ -254,6 +287,13 @@ async def update_plant(
         )
 
     update_data = request.model_dump(exclude_unset=True)
+    if "pot_id" in update_data and update_data["pot_id"] is not None:
+        await validate_pot_assignment(
+            db,
+            update_data["pot_id"],
+            current_plant_id=plant.id,
+        )
+
     for key, value in update_data.items():
         setattr(plant, key, value)
 

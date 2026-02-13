@@ -45,7 +45,9 @@ Users can maintain an inventory of their plant pots, tracking sizes and photos, 
 **Acceptance Criteria:**
 - Edit name and dimensions
 - Add/remove photos
-- Change plant assignment
+- Change plant assignment for an already existing pot
+- Allow selecting an already existing plant in the frontend assignment control
+- Allow clearing assignment ("No plant assigned")
 
 ### US-05: Assign Pot to Plant
 **As a** user  
@@ -53,9 +55,11 @@ Users can maintain an inventory of their plant pots, tracking sizes and photos, 
 **So that** I can track which pot each plant is in
 
 **Acceptance Criteria:**
+- Support assignment between already existing plants and already existing pots
 - Select from available (unassigned) pots
 - If pot already assigned, show warning and option to reassign
-- Update both pot and plant records
+- Persist assignment via `PUT /api/plants/{id}` by setting `pot_id`
+- Update both pot and plant records in the UI after save
 
 ### US-06: Delete Pot
 **As a** user  
@@ -110,6 +114,7 @@ Users can maintain an inventory of their plant pots, tracking sizes and photos, 
 
 ## Additional Considerations
 
+- **Frontend gap (2026-02-13)** - Existing UI does not yet provide assignment of an already existing plant to an already existing pot. This is now required by US-04 and US-05.
 - **Material tracking** - Should we track pot material (ceramic, plastic, terracotta)? -> No
 - **Drainage** - Track if pot has drainage holes? -> No
 - **Color** - Track pot color for aesthetic matching? -> No

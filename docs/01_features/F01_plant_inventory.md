@@ -48,7 +48,9 @@ Users can maintain a comprehensive inventory of their plants, tracking essential
 **Acceptance Criteria:**
 - Edit name and species
 - Add/remove photos
-- Change pot assignment
+- Change pot assignment for an already existing plant
+- Select from existing available pots when assigning
+- Allow clearing assignment ("No pot assigned")
 
 ### US-05: Record Care Events
 **As a** user  
