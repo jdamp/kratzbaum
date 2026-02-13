@@ -31,6 +31,7 @@ Users can identify plant species by uploading a photo, which is analyzed using t
 - "Identify" button on new plant form
 - Photo picker or camera input
 - Species suggestions populate the species field
+- Species suggestion text remains selectable/copyable without accidental species selection
 
 ### US-03: Re-identify Existing Plant
 **As a** user  
