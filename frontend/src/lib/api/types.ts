@@ -11,21 +11,28 @@ export enum ReminderType {
 	FERTILIZING = 'FERTILIZING'
 }
 
-export interface Plant {
+export enum FrequencyType {
+	DAILY = 'DAILY',
+	INTERVAL = 'INTERVAL',
+	WEEKLY = 'WEEKLY',
+	SPECIFIC_DAYS = 'SPECIFIC_DAYS'
+}
+
+export interface PlantBase {
 	id: UUID;
 	name: string;
 	species: string | null;
 	primary_photo_url: string | null;
-	pot: {
-		id: UUID;
-		name: string;
-	} | null;
-	last_watered: string | null;
-	last_fertilized: string | null;
-	last_repotted: string | null;
+	pot_id: UUID | null;
+	watering_interval: number | null;
+	fertilizing_interval: number | null;
 	created_at: string;
 	updated_at: string;
 }
+
+export interface PlantListItem extends PlantBase {}
+
+export type Plant = PlantListItem;
 
 export interface PlantCreate {
 	name: string;
@@ -33,9 +40,11 @@ export interface PlantCreate {
 	pot_id?: UUID;
 }
 
-export interface PlantDetail extends Plant {
+export interface PlantDetail extends PlantBase {
 	photos: PlantPhoto[];
-	reminders: Reminder[];
+	last_watered: string | null;
+	last_fertilized: string | null;
+	last_repotted: string | null;
 }
 
 export interface PlantPhoto {

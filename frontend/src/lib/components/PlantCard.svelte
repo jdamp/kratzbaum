@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type { Plant } from '$lib/api/types';
-	import { Droplet, Leaf, Flower2 } from 'lucide-svelte';
+	import { CareEventType, type PlantListItem } from '$lib/api/types';
+	import { Droplet, Leaf } from 'lucide-svelte';
 	import { plantService } from '$lib/api/plants';
 
-	let { plant }: { plant: Plant } = $props();
+	let { plant }: { plant: PlantListItem } = $props();
 
 	async function handleWater() {
 		try {
-			await plantService.recordCareEvent(plant.id, 'WATERED' as any);
+			await plantService.recordCareEvent(plant.id, CareEventType.WATERED);
 			// Ideally trigger a refresh or local update
 		} catch (err) {
 			console.error(err);
@@ -16,7 +16,7 @@
 
 	async function handleFertilize() {
 		try {
-			await plantService.recordCareEvent(plant.id, 'FERTILIZED' as any);
+			await plantService.recordCareEvent(plant.id, CareEventType.FERTILIZED);
 		} catch (err) {
 			console.error(err);
 		}
@@ -44,10 +44,16 @@
 			<p class="text-sm text-surface-600 italic truncate">{plant.species || 'Unknown species'}</p>
 			
 			<div class="mt-4 flex flex-col gap-1 text-xs text-surface-500">
-				{#if plant.last_watered}
+				{#if plant.watering_interval}
 					<div class="flex items-center gap-1">
 						<Droplet class="w-3 h-3 text-sky-500" />
-						<span>Watered: {new Date(plant.last_watered).toLocaleDateString()}</span>
+						<span>Water every {plant.watering_interval} day{plant.watering_interval === 1 ? '' : 's'}</span>
+					</div>
+				{/if}
+				{#if plant.fertilizing_interval}
+					<div class="flex items-center gap-1">
+						<Leaf class="w-3 h-3 text-amber-500" />
+						<span>Fertilize every {plant.fertilizing_interval} day{plant.fertilizing_interval === 1 ? '' : 's'}</span>
 					</div>
 				{/if}
 			</div>

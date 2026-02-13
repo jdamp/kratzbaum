@@ -111,6 +111,59 @@ class TestPlantEndpoints:
         assert "id" in data
 
     @pytest.mark.asyncio
+    async def test_list_plants_response_contract(
+        self, client: AsyncClient, auth_headers: dict
+    ):
+        """Test list plants response shape matches API contract."""
+        pot_response = await client.post(
+            "/api/pots",
+            json={
+                "name": "Contract Pot",
+                "diameter_cm": 18.0,
+                "height_cm": 16.0,
+            },
+            headers=auth_headers,
+        )
+        pot_id = pot_response.json()["id"]
+
+        create_response = await client.post(
+            "/api/plants",
+            json={"name": "Contract Plant", "pot_id": pot_id},
+            headers=auth_headers,
+        )
+        plant_id = create_response.json()["id"]
+
+        await client.post(
+            f"/api/plants/{plant_id}/care-events",
+            json={"event_type": "WATERED"},
+            headers=auth_headers,
+        )
+
+        response = await client.get("/api/plants", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+
+        plant = data[0]
+        assert set(plant.keys()) == {
+            "id",
+            "name",
+            "species",
+            "pot_id",
+            "watering_interval",
+            "fertilizing_interval",
+            "primary_photo_url",
+            "created_at",
+            "updated_at",
+        }
+        assert plant["pot_id"] == pot_id
+        assert "pot" not in plant
+        assert "last_watered" not in plant
+        assert "last_fertilized" not in plant
+        assert "last_repotted" not in plant
+
+    @pytest.mark.asyncio
     async def test_get_plant(self, client: AsyncClient, auth_headers: dict):
         """Test getting a plant by ID."""
         # Create plant first
@@ -129,6 +182,62 @@ class TestPlantEndpoints:
 
         assert response.status_code == 200
         assert response.json()["name"] == "Test Plant"
+
+    @pytest.mark.asyncio
+    async def test_get_plant_response_contract(
+        self, client: AsyncClient, auth_headers: dict
+    ):
+        """Test plant detail response shape matches API contract."""
+        pot_response = await client.post(
+            "/api/pots",
+            json={
+                "name": "Detail Pot",
+                "diameter_cm": 20.0,
+                "height_cm": 15.0,
+            },
+            headers=auth_headers,
+        )
+        pot_id = pot_response.json()["id"]
+
+        create_response = await client.post(
+            "/api/plants",
+            json={"name": "Detail Plant", "pot_id": pot_id},
+            headers=auth_headers,
+        )
+        plant_id = create_response.json()["id"]
+
+        await client.post(
+            f"/api/plants/{plant_id}/care-events",
+            json={"event_type": "WATERED"},
+            headers=auth_headers,
+        )
+
+        response = await client.get(f"/api/plants/{plant_id}", headers=auth_headers)
+
+        assert response.status_code == 200
+        plant = response.json()
+        assert set(plant.keys()) == {
+            "id",
+            "name",
+            "species",
+            "pot_id",
+            "watering_interval",
+            "fertilizing_interval",
+            "primary_photo_url",
+            "created_at",
+            "updated_at",
+            "photos",
+            "last_watered",
+            "last_fertilized",
+            "last_repotted",
+        }
+        assert plant["pot_id"] == pot_id
+        assert plant["photos"] == []
+        assert plant["last_watered"] is not None
+        assert plant["last_fertilized"] is None
+        assert plant["last_repotted"] is None
+        assert "pot" not in plant
+        assert "reminders" not in plant
 
     @pytest.mark.asyncio
     async def test_update_plant(self, client: AsyncClient, auth_headers: dict):
