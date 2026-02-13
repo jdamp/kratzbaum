@@ -85,43 +85,38 @@ List all plants for the authenticated user.
 |-------|------|-------------|
 | sort | string | Field to sort by: `name`, `species`, `created_at` |
 | order | string | Sort order: `asc`, `desc` |
-| species | string | Filter by species |
-| needs_water | boolean | Filter plants due for watering |
+| search | string | Optional case-insensitive name search |
 
 **Response (200):**
 ```json
-{
-  "items": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "name": "My Monstera",
-      "species": "Monstera deliciosa",
-      "primary_photo_url": "/uploads/plants/abc123.jpg",
-      "pot": {
-        "id": "660e8400-e29b-41d4-a716-446655440001",
-        "name": "Large Terracotta"
-      },
-      "last_watered": "2024-01-14T10:00:00Z",
-      "last_fertilized": "2024-01-01T10:00:00Z",
-      "created_at": "2024-01-01T10:30:00Z"
-    }
-  ],
-  "total": 15,
-  "page": 1,
-  "per_page": 20
-}
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "My Monstera",
+    "species": "Monstera deliciosa",
+    "pot_id": "660e8400-e29b-41d4-a716-446655440001",
+    "watering_interval": 7,
+    "fertilizing_interval": 30,
+    "primary_photo_url": "/uploads/plants/abc123.jpg",
+    "created_at": "2024-01-01T10:30:00Z",
+    "updated_at": "2024-01-15T10:30:00Z"
+  }
+]
 ```
 
 ### POST /plants
 Create a new plant.
 
-**Request (multipart/form-data):**
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| name | string | Yes | Plant name |
-| species | string | No | Species name |
-| pot_id | uuid | No | Assign to pot |
-| photos | file[] | No | One or more photos |
+**Request (application/json):**
+```json
+{
+  "name": "My Monstera",
+  "species": "Monstera deliciosa",
+  "pot_id": "660e8400-e29b-41d4-a716-446655440001",
+  "watering_interval": 7,
+  "fertilizing_interval": 30
+}
+```
 
 **Response (201):**
 ```json
@@ -129,9 +124,12 @@ Create a new plant.
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "My Monstera",
   "species": "Monstera deliciosa",
-  "pot_id": null,
-  "photos": [],
-  "created_at": "2024-01-15T10:30:00Z"
+  "pot_id": "660e8400-e29b-41d4-a716-446655440001",
+  "watering_interval": 7,
+  "fertilizing_interval": 30,
+  "primary_photo_url": null,
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z"
 }
 ```
 
@@ -144,12 +142,10 @@ Get plant details.
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "My Monstera",
   "species": "Monstera deliciosa",
-  "pot": {
-    "id": "660e8400-e29b-41d4-a716-446655440001",
-    "name": "Large Terracotta",
-    "diameter_cm": 25.0,
-    "height_cm": 20.0
-  },
+  "pot_id": "660e8400-e29b-41d4-a716-446655440001",
+  "watering_interval": 7,
+  "fertilizing_interval": 30,
+  "primary_photo_url": "/uploads/plants/abc123.jpg",
   "photos": [
     {
       "id": "770e8400-e29b-41d4-a716-446655440002",
@@ -161,14 +157,6 @@ Get plant details.
   "last_watered": "2024-01-14T10:00:00Z",
   "last_fertilized": "2024-01-01T10:00:00Z",
   "last_repotted": "2023-06-01T10:00:00Z",
-  "reminders": [
-    {
-      "id": "880e8400-e29b-41d4-a716-446655440003",
-      "type": "WATERING",
-      "next_due": "2024-01-17T10:00:00Z",
-      "is_enabled": true
-    }
-  ],
   "created_at": "2024-01-01T10:30:00Z",
   "updated_at": "2024-01-15T10:30:00Z"
 }
@@ -207,11 +195,10 @@ Record a care event.
 }
 ```
 
-**Response (201):**
+**Response (200):**
 ```json
 {
   "id": "990e8400-e29b-41d4-a716-446655440004",
-  "plant_id": "550e8400-e29b-41d4-a716-446655440000",
   "event_type": "WATERED",
   "event_date": "2024-01-15T10:00:00Z",
   "notes": "Used filtered water",
@@ -226,8 +213,6 @@ Get care history.
 | Param | Type | Description |
 |-------|------|-------------|
 | event_type | string | Filter by type |
-| from_date | datetime | Start date |
-| to_date | datetime | End date |
 
 ---
 

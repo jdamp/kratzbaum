@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Plant, PlantDetail, CareEvent, CareEventType, PlantCreate } from './types';
+import type { PlantListItem, PlantDetail, CareEvent, CareEventType, PlantCreate } from './types';
 
 export const plantService = {
 	getPlants: (params?: {
@@ -15,7 +15,7 @@ export const plantService = {
 			});
 		}
 		const query = searchParams.toString();
-		return apiClient.get<Plant[]>(`/plants${query ? `?${query}` : ''}`);
+		return apiClient.get<PlantListItem[]>(`/plants${query ? `?${query}` : ''}`);
 	},
 
 	getPlant: (id: string) => {
@@ -23,7 +23,7 @@ export const plantService = {
 	},
 
 	createPlant: (data: PlantCreate) => {
-		return apiClient.post<Plant>('/plants', data);
+		return apiClient.post<PlantListItem>('/plants', data);
 	},
 
 	uploadPhoto: (plantId: string, file: File, isPrimary: boolean = false) => {
@@ -38,7 +38,7 @@ export const plantService = {
 	},
 
 	updatePlant: (id: string, data: any) => {
-		return apiClient.put<Plant>(`/plants/${id}`, data);
+		return apiClient.put<PlantListItem>(`/plants/${id}`, data);
 	},
 
 	deletePlant: (id: string) => {

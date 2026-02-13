@@ -2,11 +2,13 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { plantService } from '$lib/api/plants';
-	import type { PlantDetail, CareEvent, PlantPhoto } from '$lib/api/types';
-	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, Camera, X, Check, Plus, Calendar } from 'lucide-svelte';
+	import { potService } from '$lib/api/pots';
+	import type { PlantDetail, CareEvent, CareEventType, PlantPhoto } from '$lib/api/types';
+	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, X, Check, Plus, Calendar } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 
 	let plant: PlantDetail | null = $state(null);
+	let potName: string | null = $state(null);
 	let careEvents: CareEvent[] = $state([]);
 	let isLoading = $state(true);
 
@@ -29,13 +31,28 @@
 
 	const plantId = page.params.id ?? '';
 
+	async function loadPlant(plantIdToLoad: string) {
+		const plantData = await plantService.getPlant(plantIdToLoad);
+		plant = plantData;
+		potName = null;
+
+		if (plantData.pot_id) {
+			try {
+				const pot = await potService.getPot(plantData.pot_id);
+				potName = pot.name;
+			} catch (err) {
+				console.error('Failed to fetch pot details:', err);
+			}
+		}
+	}
+
 	onMount(async () => {
 		if (!plantId) {
 			isLoading = false;
 			return;
 		}
 		try {
-			plant = await plantService.getPlant(plantId);
+			await loadPlant(plantId);
 			careEvents = await plantService.getCareHistory(plantId);
 		} catch (err) {
 			console.error('Failed to fetch plant:', err);
@@ -66,7 +83,7 @@
 				species: editSpecies.trim() || null
 			});
 			// Refresh plant data
-			plant = await plantService.getPlant(plant.id);
+			await loadPlant(plant.id);
 			closeEditModal();
 		} catch (err) {
 			console.error('Failed to update plant:', err);
@@ -93,7 +110,7 @@
 			const isPrimary = plant.photos.length === 0;
 			await plantService.uploadPhoto(plant.id, file, isPrimary);
 			// Refresh plant data
-			plant = await plantService.getPlant(plant.id);
+			await loadPlant(plant.id);
 		} catch (err) {
 			console.error('Failed to upload photo:', err);
 		} finally {
@@ -110,9 +127,9 @@
 		try {
 			await plantService.deletePhoto(plant.id, photoId);
 			// Refresh plant data
-			plant = await plantService.getPlant(plant.id);
+			await loadPlant(plant.id);
 			// Reset selected index if needed
-			if (selectedPhotoIndex >= plant.photos.length) {
+			if (plant && selectedPhotoIndex >= plant.photos.length) {
 				selectedPhotoIndex = Math.max(0, plant.photos.length - 1);
 			}
 		} catch (err) {
@@ -150,10 +167,10 @@
 				// Parse the date as local time at noon to avoid timezone issues
 				eventDate = new Date(careEventDate + 'T12:00:00');
 			}
-			await plantService.recordCareEvent(plant.id, careEventType as any, undefined, eventDate);
+			await plantService.recordCareEvent(plant.id, careEventType as CareEventType, undefined, eventDate);
 			// Refresh care events and plant data
 			careEvents = await plantService.getCareHistory(plant.id);
-			plant = await plantService.getPlant(plant.id);
+			await loadPlant(plant.id);
 			closeCareEventModal();
 		} catch (err) {
 			console.error(err);
@@ -177,7 +194,7 @@
 				await plantService.deleteCareEvent(plant.id, eventId);
 				// Refresh care events and plant data (for updated last_watered, etc.)
 				careEvents = await plantService.getCareHistory(plant.id);
-				plant = await plantService.getPlant(plant.id);
+				await loadPlant(plant.id);
 			} catch (err) {
 				console.error('Failed to delete care event:', err);
 			}
@@ -257,9 +274,9 @@
 				</div>
 			</div>
 
-			{#if plant.pot}
+			{#if plant.pot_id}
 				<div class="text-sm text-surface-600 mb-4">
-					<span class="font-medium">Pot:</span> {plant.pot.name}
+					<span class="font-medium">Pot:</span> {potName || 'Assigned'}
 				</div>
 			{/if}
 

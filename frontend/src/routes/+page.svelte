@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { plantService } from '$lib/api/plants';
-	import type { Plant } from '$lib/api/types';
+	import type { PlantListItem } from '$lib/api/types';
 	import PlantCard from '$lib/components/PlantCard.svelte';
 	import { Plus, Search, Filter } from 'lucide-svelte';
 
-	let plants: Plant[] = $state([]);
+	let plants: PlantListItem[] = $state([]);
 	let isLoading = $state(true);
 	let searchQuery = $state('');
 
