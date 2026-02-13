@@ -2,12 +2,13 @@
 
 ## Base URL
 ```
-https://your-domain.com/api/v1
+https://your-domain.com/api
 ```
 
 ## Authentication
 
-All endpoints except `/auth/login` and `/auth/register` require authentication via Bearer token.
+Auth endpoints (`/auth/setup`, `/auth/login`, `/auth/refresh`) do not require `Authorization` headers.
+All other endpoints require authentication via Bearer token.
 
 ### Headers
 ```
@@ -19,25 +20,22 @@ Content-Type: application/json
 
 ## Auth Endpoints
 
-### POST /auth/register
-Create a new user account.
+### POST /auth/setup
+Create the single local user (only available before initial setup).
 
 **Request:**
 ```json
 {
   "username": "plantlover",
-  "email": "user@example.com",
   "password": "securepassword123"
 }
 ```
 
-**Response (201):**
+**Response (200):**
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "username": "plantlover",
-  "email": "user@example.com",
-  "created_at": "2024-01-15T10:30:00Z"
+  "message": "User created successfully",
+  "username": "plantlover"
 }
 ```
 

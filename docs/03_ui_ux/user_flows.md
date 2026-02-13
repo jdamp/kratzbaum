@@ -213,8 +213,8 @@ flowchart TD
 
 | Screen | Description | Key Components |
 |--------|-------------|----------------|
-| Login | Authentication | Username, password, register link |
-| Register | New account | Username, email, password, confirm |
+| Setup | Initial single-user configuration | Username, password |
+| Login | Authentication | Username, password |
 | Dashboard | Plant overview | Grid/list view, filter, sort, FAB |
 | Plant Detail | Single plant | Photo carousel, care timeline, actions |
 | New/Edit Plant | Form | Name, species, photo picker, pot selector |
