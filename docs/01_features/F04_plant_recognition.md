@@ -6,6 +6,7 @@ Users can identify plant species by uploading a photo, which is analyzed using t
 > [!WARNING]
 > Status: Partially implemented.
 > - Implemented: `POST /api/identify`
+> - Implemented: identify action in both `/plants/new` and `/plants/{id}` edit modal
 > - Not planned: identification history persistence endpoints
 
 ## User Stories
@@ -38,10 +39,10 @@ Users can identify plant species by uploading a photo, which is analyzed using t
 **So that** I can correct or verify its species
 
 **Acceptance Criteria:**
-- "Identify" action on plant detail view
-- Use existing photos or take new one
-- Show current species vs suggestions
-- Update species on user confirmation
+- "Identify" action in existing plant edit modal
+- Select a plant photo as identification source (including newly uploaded photos)
+- Show species suggestions with confidence scores
+- Apply selected suggestion to species field before save
 
 ### US-04: Configure PlantNet API Key In-App
 **As a** user  
