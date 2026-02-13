@@ -9,7 +9,7 @@ from app.services.files import delete_upload_file, save_upload_file
 
 @pytest.fixture
 def mock_settings(tmp_path):
-    with patch("app.services.files.settings", autospec=True) as mock:
+    with patch("app.services.files.settings") as mock:
         mock.upload_plants_dir = tmp_path / "plants"
         mock.upload_pots_dir = tmp_path / "pots"
         yield mock
@@ -64,4 +64,3 @@ async def test_delete_upload_file(mock_settings):
 async def test_delete_upload_file_not_found(mock_settings):
     # Should not raise error
     await delete_upload_file("nonexistent.jpg", "plants")
-

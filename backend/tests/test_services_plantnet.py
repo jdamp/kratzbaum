@@ -8,7 +8,7 @@ from app.services.plantnet import identify_plant
 
 @pytest.fixture
 def mock_settings():
-    with patch("app.services.plantnet.settings", autospec=True) as mock:
+    with patch("app.services.plantnet.settings") as mock:
         mock.plantnet_api_key = "test_key"
         mock.plantnet_api_url = "https://my-api.plantnet.org/v2/identify/all"
         yield mock
@@ -51,7 +51,7 @@ async def test_identify_plant_success(mock_settings):
 
 @pytest.mark.asyncio
 async def test_identify_plant_no_api_key():
-    with patch("app.services.plantnet.settings", autospec=True) as mock:
+    with patch("app.services.plantnet.settings") as mock:
         mock.plantnet_api_key = None
         result = await identify_plant(b"image_data")
         assert "error" in result
@@ -61,7 +61,7 @@ async def test_identify_plant_no_api_key():
 
 @pytest.mark.asyncio
 async def test_identify_plant_prefers_explicit_api_key():
-    with patch("app.services.plantnet.settings", autospec=True) as mock_settings:
+    with patch("app.services.plantnet.settings") as mock_settings:
         mock_settings.plantnet_api_key = None
         mock_settings.plantnet_api_url = "https://my-api.plantnet.org/v2/identify/all"
 

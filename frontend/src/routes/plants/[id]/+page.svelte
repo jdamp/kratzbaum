@@ -653,7 +653,7 @@
 				
 				<!-- Photo Management -->
 				<div>
-					<label class="block text-sm font-medium text-surface-700 mb-2">Photos</label>
+					<p class="block text-sm font-medium text-surface-700 mb-2">Photos</p>
 					
 					<!-- Existing Photos -->
 					{#if plant && plant.photos && plant.photos.length > 0}

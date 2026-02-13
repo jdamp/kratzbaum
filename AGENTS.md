@@ -35,6 +35,7 @@ All implemented routes are mounted under `/api`.
 - `DELETE /api/plants/{plant_id}`
 - `POST /api/plants/{plant_id}/photos`
 - `DELETE /api/plants/{plant_id}/photos/{photo_id}`
+- `POST /api/plants/{plant_id}/photos/{photo_id}/primary`
 - `POST /api/plants/{plant_id}/care-events`
 - `GET /api/plants/{plant_id}/care-events`
 - `DELETE /api/plants/{plant_id}/care-events/{event_id}`
@@ -54,11 +55,19 @@ All implemented routes are mounted under `/api`.
 - `POST /api/reminders/{reminder_id}/snooze`
 - `DELETE /api/reminders/{reminder_id}`
 
+### Identify
+- `POST /api/identify`
+
+### Settings
+- `GET /api/settings/reminders`
+- `PUT /api/settings/reminders`
+- `GET /api/settings/plantnet`
+- `PUT /api/settings/plantnet`
+
 ### Health
 - `GET /api/health`
 
 ## 5. Not Implemented (Despite Docs/Frontend References)
-- No `/api/identify` route (PlantNet service exists, API route does not).
 - No `/api/push/subscribe` routes.
 - No `/api/reminders/overdue` route.
 - No `POST /api/reminders/{id}/complete` route.
@@ -74,12 +83,9 @@ All implemented routes are mounted under `/api`.
 - Reminder model is interval-based and recalculated from plant/global settings + care events.
 
 ## 7. High-Risk Mismatches to Check Before Editing
-- Frontend types diverge from backend payloads (`frontend/src/lib/api/types.ts` vs backend response models):
-  - Plant list/detail contract mismatch (`pot` object vs `pot_id`, missing `last_*` in list response).
-  - Pot assignment fields mismatch (`assigned_plant_name` vs backend `plant_name`).
-  - Reminder type includes frequency fields that backend does not return.
-- `frontend/src/lib/api/client.ts` expects structured errors as `detail.message`, but backend commonly returns `{"detail": "..."}` strings.
-- Documentation references `/api/v1` and register flow that do not exist.
+- Keep `frontend/src/lib/api/types.ts` aligned with backend response models in `backend/app/api/*.py`; contracts are currently aligned for plants/pots/reminders.
+- `frontend/src/lib/api/client.ts` currently handles both `{"detail":"..."}` and structured `detail.message` error payloads.
+- Product docs under `docs/01_features/` still describe planned reminder/push endpoints that are not implemented in backend routes.
 
 ## 8. Backend Architecture Notes
 - App entry/lifespan: `backend/app/main.py`.
@@ -94,10 +100,10 @@ All implemented routes are mounted under `/api`.
 
 ## 10. Quality Gates (Current Baseline)
 Validated on 2026-02-13:
-- Backend lint: `cd backend && uv run ruff check` passes.
-- Backend tests: `cd backend && uv run pytest -q` passes (`45 passed`), with pydantic deprecation warnings from test mocks.
-- Frontend type check: `cd frontend && npm run check` passes with 2 accessibility warnings in `frontend/src/routes/plants/[id]/+page.svelte`.
-- Frontend build: `cd frontend && npm run build` passes with the same 2 warnings.
+- Backend lint: `cd backend && UV_CACHE_DIR=/tmp/uv-cache uv run ruff check` passes.
+- Backend tests: `cd backend && UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q` passes (`63 passed`), with no warnings.
+- Frontend type check: `cd frontend && npm run check` passes with no warnings.
+- Frontend build: `cd frontend && npm run build` passes with no warnings.
 
 ## 11. Agent Workflow Recommendations
 - Before adding features, verify endpoint actually exists in `backend/app/api/*.py`.
