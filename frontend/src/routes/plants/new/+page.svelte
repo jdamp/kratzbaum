@@ -214,26 +214,31 @@
 					<div class="bg-white rounded-lg border border-surface-200 p-3 space-y-2">
 						<p class="text-sm font-medium text-surface-600">Select a species:</p>
 						{#each identificationResults as result}
-							<button 
-								type="button"
-								class="w-full text-left p-3 bg-surface-50 rounded-lg border border-surface-200 hover:border-primary-500 hover:bg-primary-50 transition-colors"
-								onclick={() => selectSpecies(result)}
-							>
+							<div class="w-full p-3 bg-surface-50 rounded-lg border border-surface-200 hover:border-primary-500 hover:bg-primary-50 transition-colors">
 								<div class="flex items-center justify-between gap-2">
 									<div class="flex items-center gap-2 min-w-0">
 										<Leaf class="w-4 h-4 text-primary-600 flex-shrink-0" />
 										<div class="min-w-0">
-											<p class="font-medium text-sm truncate">{result.scientific_name}</p>
+											<p class="font-medium text-sm truncate select-text">{result.scientific_name}</p>
 											{#if result.common_names.length > 0}
-												<p class="text-xs text-surface-500 truncate">{result.common_names[0]}</p>
+												<p class="text-xs text-surface-500 truncate select-text">{result.common_names[0]}</p>
 											{/if}
 										</div>
 									</div>
-									<span class="text-sm font-bold text-primary-600 flex-shrink-0">
-										{Math.round(result.score * 100)}%
-									</span>
+									<div class="flex items-center gap-2 flex-shrink-0">
+										<span class="text-sm font-bold text-primary-600">
+											{Math.round(result.score * 100)}%
+										</span>
+										<button
+											type="button"
+											class="btn variant-soft-primary btn-sm"
+											onclick={() => selectSpecies(result)}
+										>
+											Use
+										</button>
+									</div>
 								</div>
-							</button>
+							</div>
 						{/each}
 					</div>
 				{/if}
