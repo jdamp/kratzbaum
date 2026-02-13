@@ -2,8 +2,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { potService } from '$lib/api/pots';
-	import type { Pot } from '$lib/api/types';
-	import { ArrowLeft, Camera, Box } from 'lucide-svelte';
+	import { plantService } from '$lib/api/plants';
+	import { syncPotAssignment } from '$lib/services/pot-assignment';
+	import type { PlantListItem, Pot } from '$lib/api/types';
+	import { ArrowLeft, Camera } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	// Check if we're in edit mode
@@ -16,30 +18,84 @@
 	let photos: FileList | null = $state(null);
 	let photoPreview = $state<string | null>(null);
 	let existingPhotoUrl = $state<string | null>(null);
+	let plants: PlantListItem[] = $state([]);
+	let selectedPlantId = $state('');
+	let originalAssignedPlantId = $state<string | null>(null);
 	let isSubmitting = $state(false);
-	let isLoading = $state(isEditMode);
+	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
 	onMount(async () => {
-		if (editId) {
-			try {
-				const pot = await potService.getPot(editId);
-				name = pot.name;
-				diameter = pot.diameter_cm.toString();
-				height = pot.height_cm.toString();
-				// Use primary photo if available
-				const primaryPhoto = pot.photos?.find(p => p.is_primary) || pot.photos?.[0];
-				if (primaryPhoto) {
-					existingPhotoUrl = primaryPhoto.url;
-				}
-			} catch (err) {
-				console.error('Failed to fetch pot:', err);
-				error = 'Failed to load pot data';
-			} finally {
-				isLoading = false;
+		try {
+			plants = await plantService.getPlants({ sort: 'name', order: 'asc' });
+		} catch (err) {
+			console.error('Failed to fetch plants:', err);
+			error = 'Failed to load plants';
+		}
+
+		if (!editId) {
+			isLoading = false;
+			return;
+		}
+
+		try {
+			const pot = await potService.getPot(editId);
+			name = pot.name;
+			diameter = pot.diameter_cm.toString();
+			height = pot.height_cm.toString();
+			selectedPlantId = pot.plant_id ?? '';
+			originalAssignedPlantId = pot.plant_id;
+
+			// Use primary photo if available
+			const primaryPhoto = pot.photos?.find((p) => p.is_primary) || pot.photos?.[0];
+			if (primaryPhoto) {
+				existingPhotoUrl = primaryPhoto.url;
 			}
+		} catch (err) {
+			console.error('Failed to fetch pot:', err);
+			error = 'Failed to load pot data';
+		} finally {
+			isLoading = false;
 		}
 	});
+
+	function getPlantOptionLabel(plant: PlantListItem): string {
+		if (plant.pot_id && (!isEditMode || plant.pot_id !== editId)) {
+			return `${plant.name} (currently in another pot)`;
+		}
+		if (isEditMode && plant.id === originalAssignedPlantId) {
+			return `${plant.name} (currently assigned here)`;
+		}
+		return plant.name;
+	}
+
+	function getAssignmentWarning(): string | null {
+		const warnings: string[] = [];
+		const selectedPlant = plants.find((plant) => plant.id === selectedPlantId);
+
+		if (
+			selectedPlantId &&
+			selectedPlant?.pot_id &&
+			(!isEditMode || selectedPlant.pot_id !== editId)
+		) {
+			warnings.push(
+				`"${selectedPlant.name}" is currently assigned to another pot and will be reassigned.`
+			);
+		}
+
+		if (isEditMode && originalAssignedPlantId && selectedPlantId !== originalAssignedPlantId) {
+			const currentAssignedPlant = plants.find((plant) => plant.id === originalAssignedPlantId);
+			warnings.push(
+				`"${currentAssignedPlant?.name ?? 'Current plant'}" will be unassigned from this pot.`
+			);
+		}
+
+		if (warnings.length === 0) {
+			return null;
+		}
+
+		return `${warnings.join('\n')}\n\nContinue?`;
+	}
 
 	function handlePhotoChange(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -57,6 +113,11 @@
 		event.preventDefault();
 		if (!name.trim() || !diameter || !height) {
 			error = 'All fields are required';
+			return;
+		}
+
+		const assignmentWarning = getAssignmentWarning();
+		if (assignmentWarning && !confirm(assignmentWarning)) {
 			return;
 		}
 
@@ -81,6 +142,12 @@
 			if (photos && photos[0]) {
 				await potService.uploadPhoto(pot.id, photos[0], true);
 			}
+
+			await syncPotAssignment({
+				potId: pot.id,
+				selectedPlantId: selectedPlantId || null,
+				plants
+			});
 
 			goto(`/pots/${pot.id}`);
 		} catch (err: any) {
@@ -173,6 +240,16 @@
 						/>
 					</label>
 				</div>
+
+				<label class="label">
+					<span class="label-text font-medium">Assign to Plant (optional)</span>
+					<select class="select" bind:value={selectedPlantId}>
+						<option value="">No plant assigned</option>
+						{#each plants as plant}
+							<option value={plant.id}>{getPlantOptionLabel(plant)}</option>
+						{/each}
+					</select>
+				</label>
 
 				{#if error}
 					<div class="alert variant-filled-error">

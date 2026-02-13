@@ -261,6 +261,115 @@ class TestPlantEndpoints:
         assert response.json()["name"] == "New Name"
 
     @pytest.mark.asyncio
+    async def test_create_plant_rejects_already_assigned_pot(
+        self, client: AsyncClient, auth_headers: dict
+    ):
+        """Test create plant fails when pot is already assigned."""
+        pot_response = await client.post(
+            "/api/pots",
+            json={"name": "Shared Pot", "diameter_cm": 20.0, "height_cm": 15.0},
+            headers=auth_headers,
+        )
+        pot_id = pot_response.json()["id"]
+
+        first_plant_response = await client.post(
+            "/api/plants",
+            json={"name": "Plant A", "pot_id": pot_id},
+            headers=auth_headers,
+        )
+        assert first_plant_response.status_code == 201
+
+        second_plant_response = await client.post(
+            "/api/plants",
+            json={"name": "Plant B", "pot_id": pot_id},
+            headers=auth_headers,
+        )
+
+        assert second_plant_response.status_code == 400
+        assert "already assigned" in second_plant_response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_update_plant_rejects_already_assigned_pot(
+        self, client: AsyncClient, auth_headers: dict
+    ):
+        """Test update plant fails when target pot is already assigned."""
+        pot_response = await client.post(
+            "/api/pots",
+            json={"name": "Busy Pot", "diameter_cm": 21.0, "height_cm": 16.0},
+            headers=auth_headers,
+        )
+        pot_id = pot_response.json()["id"]
+
+        plant_a_response = await client.post(
+            "/api/plants",
+            json={"name": "Plant A", "pot_id": pot_id},
+            headers=auth_headers,
+        )
+        assert plant_a_response.status_code == 201
+
+        plant_b_response = await client.post(
+            "/api/plants",
+            json={"name": "Plant B"},
+            headers=auth_headers,
+        )
+        plant_b_id = plant_b_response.json()["id"]
+
+        assign_response = await client.put(
+            f"/api/plants/{plant_b_id}",
+            json={"pot_id": pot_id},
+            headers=auth_headers,
+        )
+
+        assert assign_response.status_code == 400
+        assert "already assigned" in assign_response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_reassign_pot_succeeds_via_unassign_then_assign(
+        self, client: AsyncClient, auth_headers: dict
+    ):
+        """Test reassignment works when old owner is unassigned first."""
+        pot_response = await client.post(
+            "/api/pots",
+            json={"name": "Reassign Pot", "diameter_cm": 18.0, "height_cm": 14.0},
+            headers=auth_headers,
+        )
+        pot_id = pot_response.json()["id"]
+
+        plant_a_response = await client.post(
+            "/api/plants",
+            json={"name": "Plant A", "pot_id": pot_id},
+            headers=auth_headers,
+        )
+        plant_a_id = plant_a_response.json()["id"]
+
+        plant_b_response = await client.post(
+            "/api/plants",
+            json={"name": "Plant B"},
+            headers=auth_headers,
+        )
+        plant_b_id = plant_b_response.json()["id"]
+
+        unassign_response = await client.put(
+            f"/api/plants/{plant_a_id}",
+            json={"pot_id": None},
+            headers=auth_headers,
+        )
+        assert unassign_response.status_code == 200
+        assert unassign_response.json()["pot_id"] is None
+
+        assign_response = await client.put(
+            f"/api/plants/{plant_b_id}",
+            json={"pot_id": pot_id},
+            headers=auth_headers,
+        )
+        assert assign_response.status_code == 200
+        assert assign_response.json()["pot_id"] == pot_id
+
+        pot_detail_response = await client.get(f"/api/pots/{pot_id}", headers=auth_headers)
+        assert pot_detail_response.status_code == 200
+        assert pot_detail_response.json()["plant_id"] == plant_b_id
+
+    @pytest.mark.asyncio
     async def test_delete_plant(self, client: AsyncClient, auth_headers: dict):
         """Test deleting a plant."""
         # Create plant first

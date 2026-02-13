@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { plantService } from '$lib/api/plants';
 	import { potService } from '$lib/api/pots';
-	import type { PlantDetail, CareEvent, CareEventType, PlantPhoto } from '$lib/api/types';
+	import type { PlantDetail, CareEvent, CareEventType, PlantPhoto, Pot } from '$lib/api/types';
 	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, X, Check, Plus, Calendar } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 
@@ -16,6 +16,9 @@
 	let showEditModal = $state(false);
 	let editName = $state('');
 	let editSpecies = $state('');
+	let editPotId = $state('');
+	let editPotOptions: Pot[] = $state([]);
+	let isLoadingEditPots = $state(false);
 	let isSaving = $state(false);
 
 	// Photo management state
@@ -65,6 +68,8 @@
 		if (!plant) return;
 		editName = plant.name;
 		editSpecies = plant.species || '';
+		editPotId = plant.pot_id || '';
+		void loadEditPotOptions(plant.pot_id);
 		showEditModal = true;
 	}
 
@@ -72,6 +77,39 @@
 		showEditModal = false;
 		editName = '';
 		editSpecies = '';
+		editPotId = '';
+		editPotOptions = [];
+		isLoadingEditPots = false;
+	}
+
+	async function loadEditPotOptions(currentPotId: string | null) {
+		isLoadingEditPots = true;
+		try {
+			const availablePots = await potService.getAvailablePots();
+			if (!currentPotId) {
+				editPotOptions = availablePots;
+				return;
+			}
+
+			const currentPotInAvailable = availablePots.find((potOption) => potOption.id === currentPotId);
+			if (currentPotInAvailable) {
+				editPotOptions = availablePots;
+				return;
+			}
+
+			try {
+				const currentPot = await potService.getPot(currentPotId);
+				editPotOptions = [currentPot, ...availablePots];
+			} catch (err) {
+				console.error('Failed to fetch currently assigned pot:', err);
+				editPotOptions = availablePots;
+			}
+		} catch (err) {
+			console.error('Failed to fetch available pots:', err);
+			editPotOptions = [];
+		} finally {
+			isLoadingEditPots = false;
+		}
 	}
 
 	async function handleSaveEdit() {
@@ -80,7 +118,8 @@
 		try {
 			await plantService.updatePlant(plant.id, {
 				name: editName.trim(),
-				species: editSpecies.trim() || null
+				species: editSpecies.trim() || null,
+				pot_id: editPotId || null
 			});
 			// Refresh plant data
 			await loadPlant(plant.id);
@@ -410,6 +449,24 @@
 						class="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
 						placeholder="e.g. Monstera deliciosa"
 					/>
+				</div>
+
+				<div>
+					<label for="edit-pot" class="block text-sm font-medium text-surface-700 mb-1">Pot</label>
+					{#if isLoadingEditPots}
+						<p class="text-sm text-surface-500 py-2">Loading available pots...</p>
+					{:else}
+						<select
+							id="edit-pot"
+							bind:value={editPotId}
+							class="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+						>
+							<option value="">No pot assigned</option>
+							{#each editPotOptions as potOption}
+								<option value={potOption.id}>{potOption.name} ({potOption.diameter_cm}cm)</option>
+							{/each}
+						</select>
+					{/if}
 				</div>
 				
 				<!-- Photo Management -->

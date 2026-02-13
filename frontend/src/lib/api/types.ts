@@ -40,6 +40,14 @@ export interface PlantCreate {
 	pot_id?: UUID;
 }
 
+export interface PlantUpdate {
+	name?: string;
+	species?: string | null;
+	pot_id?: UUID | null;
+	watering_interval?: number | null;
+	fertilizing_interval?: number | null;
+}
+
 export interface PlantDetail extends PlantBase {
 	photos: PlantPhoto[];
 	last_watered: string | null;

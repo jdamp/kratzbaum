@@ -169,6 +169,16 @@ flowchart TD
     P --> Q{Assigned to Plant?}
     Q -->|Yes| R[Show Plant Link]
     Q -->|No| S["Available" Status]
+    R --> T["Tap Assign/Reassign Plant"]
+    S --> T
+    T --> U[Assignment Form]
+    U --> V[Select Existing Plant or "No plant assigned"]
+    V --> W{Selected Plant Already Has Pot?}
+    W -->|Yes| X[Show Reassign Warning]
+    X --> Y[Confirm Reassignment]
+    W -->|No| Z[Save Assignment]
+    Y --> Z
+    Z --> AA[Pot + Plant Updated]
 ```
 
 ---
@@ -221,7 +231,7 @@ flowchart TD
 | Reminders List | All reminders | Grouped by date, quick actions |
 | Reminder Form | Create/edit | Type, frequency, time, dormant |
 | Pots List | Pot inventory | Grid/list, availability filter |
-| Pot Detail | Single pot | Photos, dimensions, plant link |
-| New/Edit Pot | Form | Name, dimensions, photo picker |
+| Pot Detail | Single pot | Photos, dimensions, plant link, assign/reassign action |
+| New/Edit Pot | Form | Name, dimensions, photo picker, existing plant selector |
 | Identify | Species ID | Camera, organ selector, results |
 | Settings | App settings | Profile, notifications, theme |

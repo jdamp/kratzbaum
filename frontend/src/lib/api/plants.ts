@@ -1,5 +1,12 @@
 import { apiClient } from './client';
-import type { PlantListItem, PlantDetail, CareEvent, CareEventType, PlantCreate } from './types';
+import type {
+	PlantListItem,
+	PlantDetail,
+	CareEvent,
+	CareEventType,
+	PlantCreate,
+	PlantUpdate
+} from './types';
 
 export const plantService = {
 	getPlants: (params?: {
@@ -37,7 +44,7 @@ export const plantService = {
 		return apiClient.delete(`/plants/${plantId}/photos/${photoId}`);
 	},
 
-	updatePlant: (id: string, data: any) => {
+	updatePlant: (id: string, data: PlantUpdate) => {
 		return apiClient.put<PlantListItem>(`/plants/${id}`, data);
 	},
 
