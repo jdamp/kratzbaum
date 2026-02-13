@@ -77,12 +77,12 @@
 				</div>
 			</div>
 
-			{#if pot.plant}
+			{#if pot.plant_id}
 				<div class="p-4 bg-primary-50 rounded-lg">
 					<p class="text-sm text-surface-600 mb-1">Currently assigned to:</p>
-					<a href="/plants/{pot.plant.id}" class="flex items-center gap-2 text-primary-600 font-medium hover:underline">
+					<a href="/plants/{pot.plant_id}" class="flex items-center gap-2 text-primary-600 font-medium hover:underline">
 						<Leaf class="w-4 h-4" />
-						{pot.plant.name}
+						{pot.plant_name ?? 'Unnamed plant'}
 					</a>
 				</div>
 			{:else}
