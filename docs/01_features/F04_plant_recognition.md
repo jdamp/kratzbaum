@@ -43,6 +43,27 @@ Users can identify plant species by uploading a photo, which is analyzed using t
 - Show current species vs suggestions
 - Update species on user confirmation
 
+### US-04: Configure PlantNet API Key In-App
+**As a** user  
+**I want to** provide and store my PlantNet API key in app settings  
+**So that** plant identification works without server-level env edits
+
+**Acceptance Criteria:**
+- A settings screen provides a dedicated PlantNet API key field.
+- The key can be saved and updated by the authenticated user.
+- The key persists in backend settings storage and survives restarts.
+- The UI shows whether a key is configured without displaying the full key value.
+
+### US-05: Show Missing-Key Errors Clearly
+**As a** user  
+**I want to** see a specific error when the PlantNet API key is missing  
+**So that** I can quickly fix configuration and retry
+
+**Acceptance Criteria:**
+- If identify fails due to missing key, UI shows a dedicated message (not generic failure).
+- Error UI includes a clear resolution path (for example, open settings).
+- Non-key failures continue to show contextual generic errors.
+
 ## PlantNet API Integration
 
 ### API Details
@@ -84,6 +105,8 @@ Current backend adapter behavior (`POST /api/identify`):
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/identify` | Identify plant from photo (implemented) |
+| GET | `/api/settings/plantnet` | Read PlantNet key configuration status (planned) |
+| PUT | `/api/settings/plantnet` | Save/update PlantNet API key (planned) |
 
 ### Implemented Endpoint Contract
 `POST /api/identify` accepts `multipart/form-data` with:
@@ -94,6 +117,7 @@ Returns:
 - `results`: top 0-5 transformed species suggestions
 - `remaining_identifications`: upstream PlantNet quota hint when available
 - `error`: populated string when PlantNet call fails; in this case status code is still `200`
+- `error_code`: machine-readable error code for frontend handling (planned, e.g. `MISSING_API_KEY`)
 
 Validation errors:
 - Invalid `organ` -> `400`
@@ -107,7 +131,7 @@ Validation errors:
 > [!CAUTION]
 > PlantNet API considerations:
 
-1. **API Key Security** - Store API key in environment variables, never in code
+1. **API Key Security** - Store API key in settings storage (not in frontend localStorage), never in code
 2. **Rate Limiting** - Check API limits (typically 500 requests/day for free tier)
 3. **Error Handling** - Handle API timeouts and rate limit errors gracefully
 4. **Organ Selection** - Prompt user to specify which part of plant is in photo
@@ -118,3 +142,7 @@ Validation errors:
 If PlantNet API is unavailable:
 - Current behavior: return `200` with `error` set and `results: []` so UI can surface a user-facing error message.
 - No persistence/retry queue is planned for identification attempts.
+
+If PlantNet API key is missing:
+- Target behavior: return `200` with `error_code: "MISSING_API_KEY"` and `results: []`.
+- Frontend should render dedicated missing-key guidance with a settings call-to-action.

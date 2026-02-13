@@ -1,13 +1,8 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { Search, Camera, Leaf, Upload } from 'lucide-svelte';
 	import { apiClient } from '$lib/api/client';
-
-	interface IdentificationResult {
-		score: number;
-		scientific_name: string;
-		common_names: string[];
-		family: string;
-	}
+	import type { IdentifyResponse, IdentificationResult } from '$lib/api/types';
 
 	let photo: File | null = $state(null);
 	let photoPreview = $state<string | null>(null);
@@ -15,6 +10,7 @@
 	let results = $state<IdentificationResult[]>([]);
 	let isIdentifying = $state(false);
 	let error = $state<string | null>(null);
+	let isMissingApiKey = $state(false);
 
 	function handlePhotoChange(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -37,14 +33,30 @@
 
 		isIdentifying = true;
 		error = null;
+		isMissingApiKey = false;
 
 		try {
 			const formData = new FormData();
 			formData.append('image', photo);
 			formData.append('organ', organ);
 
-			const response = await apiClient.post<{ results: IdentificationResult[] }>('/identify', formData);
+			const response = await apiClient.post<IdentifyResponse>('/identify', formData);
 			results = response.results || [];
+
+			if (response.error_code === 'MISSING_API_KEY') {
+				isMissingApiKey = true;
+				error = 'PlantNet API key is missing. Add your key in Settings to continue.';
+				return;
+			}
+
+			if (response.error) {
+				error = response.error;
+				return;
+			}
+
+			if (results.length === 0) {
+				error = 'No species matches found';
+			}
 		} catch (err: any) {
 			error = err.message || 'Identification failed';
 		} finally {
@@ -105,6 +117,11 @@
 		{#if error}
 			<div class="alert variant-filled-error mb-4">
 				<p>{error}</p>
+				{#if isMissingApiKey}
+					<button class="btn btn-sm variant-soft mt-3" onclick={() => goto('/settings')}>
+						Open Settings
+					</button>
+				{/if}
 			</div>
 		{/if}
 

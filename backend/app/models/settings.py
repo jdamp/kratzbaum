@@ -22,6 +22,7 @@ class Settings(SQLModel, table=True):
         default=time(9, 0),
         sa_column=Column(Time, nullable=False),
     )
+    plantnet_api_key: str | None = Field(default=None, max_length=255)
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

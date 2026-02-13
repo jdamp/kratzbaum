@@ -73,6 +73,51 @@ Refresh an expired token.
 
 ---
 
+## Settings Endpoints
+
+### GET /settings/reminders
+Get global reminder defaults.
+
+### PUT /settings/reminders
+Update global reminder defaults.
+
+### GET /settings/plantnet
+Get PlantNet integration settings (planned).
+
+**Response (200):**
+```json
+{
+  "is_configured": true,
+  "masked_api_key": "pl***9k",
+  "updated_at": "2026-02-13T12:00:00Z"
+}
+```
+
+Notes:
+- `masked_api_key` is optional and should never reveal the full secret.
+- This endpoint is intended for frontend configuration UX and does not expose raw keys.
+
+### PUT /settings/plantnet
+Create/update PlantNet API key (planned).
+
+**Request (application/json):**
+```json
+{
+  "api_key": "pl-xxxxxxxxxxxxxxxx"
+}
+```
+
+**Response (200):**
+```json
+{
+  "is_configured": true,
+  "masked_api_key": "pl***xx",
+  "updated_at": "2026-02-13T12:00:00Z"
+}
+```
+
+---
+
 ## Plant Endpoints
 
 ### GET /plants
@@ -348,6 +393,7 @@ Identify a plant from photo (proxied to PlantNet API).
 
 **Behavior notes:**
 - Service-level PlantNet failures (e.g. missing API key or non-200 upstream response) return `200` with `error` populated and an empty `results` list.
+- Missing-key failures should also include `error_code: "MISSING_API_KEY"` so frontend can show explicit configuration guidance.
 - Invalid organ value returns `400` with `detail` string.
 - Empty uploads return `400` with `detail` string.
 - Non-image uploads return `400` with `detail` string.

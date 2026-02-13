@@ -29,6 +29,20 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
 
+        # Lightweight schema drift fix for existing deployments without migrations.
+        # New installs already get this column from SQLModel metadata.
+        if conn.dialect.name == "sqlite":
+            result = await conn.exec_driver_sql("PRAGMA table_info(settings)")
+            column_names = {row[1] for row in result.fetchall()}
+            if "plantnet_api_key" not in column_names:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE settings ADD COLUMN plantnet_api_key VARCHAR(255)"
+                )
+        else:
+            await conn.exec_driver_sql(
+                "ALTER TABLE settings ADD COLUMN IF NOT EXISTS plantnet_api_key VARCHAR(255)"
+            )
+
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """Get an async database session."""

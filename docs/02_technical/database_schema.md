@@ -18,6 +18,7 @@ erDiagram
         int default_watering_interval "nullable"
         int default_fertilizing_interval "nullable"
         time preferred_reminder_time
+        string plantnet_api_key "nullable, secret"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -113,6 +114,7 @@ erDiagram
 | default_watering_interval | INTEGER | NULLABLE | Default days between watering |
 | default_fertilizing_interval | INTEGER | NULLABLE | Default days between fertilizing |
 | preferred_reminder_time | TIME | NOT NULL, DEFAULT '09:00' | When to send notifications |
+| plantnet_api_key | VARCHAR(255) | NULLABLE | PlantNet API key (write-only in API responses) |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Creation timestamp |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Last update timestamp |
 
@@ -254,6 +256,7 @@ class Settings(SQLModel, table=True):
     default_watering_interval: Optional[int] = Field(default=None)
     default_fertilizing_interval: Optional[int] = Field(default=None)
     preferred_reminder_time: time = Field(default=time(9, 0))
+    plantnet_api_key: Optional[str] = Field(default=None, max_length=255)
     
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))

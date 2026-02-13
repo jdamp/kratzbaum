@@ -70,7 +70,7 @@ Nature-inspired palette:
 - HTTPS required for all connections
 - Password hashing with bcrypt
 - Rate limiting on authentication endpoints
-- PlantNet API key stored in environment variables
+- PlantNet API key configurable in-app and stored in backend settings
 
 ### Scalability
 - Single-user initially (multi-user support can be added later)

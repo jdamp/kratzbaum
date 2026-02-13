@@ -3,16 +3,9 @@
 	import { plantService } from '$lib/api/plants';
 	import { potService } from '$lib/api/pots';
 	import { apiClient } from '$lib/api/client';
-	import type { Pot } from '$lib/api/types';
+	import type { IdentifyResponse, IdentificationResult, Pot } from '$lib/api/types';
 	import { ArrowLeft, Camera, Upload, Leaf, Search } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-
-	interface IdentificationResult {
-		score: number;
-		scientific_name: string;
-		common_names: string[];
-		family: string;
-	}
 
 	let name = $state('');
 	let species = $state('');
@@ -29,6 +22,7 @@
 	let isIdentifying = $state(false);
 	let identificationResults = $state<IdentificationResult[]>([]);
 	let identifyError = $state<string | null>(null);
+	let identifyMissingApiKey = $state(false);
 
 	onMount(async () => {
 		try {
@@ -63,15 +57,19 @@
 
 		isIdentifying = true;
 		identifyError = null;
+		identifyMissingApiKey = false;
 
 		try {
 			const formData = new FormData();
 			formData.append('image', photos[0]);
 			formData.append('organ', 'leaf'); // Default to leaf
 
-			const response = await apiClient.post<{ results: IdentificationResult[]; error?: string }>('/identify', formData);
+			const response = await apiClient.post<IdentifyResponse>('/identify', formData);
 			
-			if (response.error) {
+			if (response.error_code === 'MISSING_API_KEY') {
+				identifyMissingApiKey = true;
+				identifyError = 'PlantNet API key is missing. Add your key in Settings to continue.';
+			} else if (response.error) {
 				identifyError = response.error;
 			} else {
 				identificationResults = response.results || [];
@@ -206,6 +204,9 @@
 				{#if identifyError}
 					<div class="alert variant-soft-warning text-sm">
 						<p>{identifyError}</p>
+						{#if identifyMissingApiKey}
+							<a href="/settings" class="mt-2 inline-flex text-primary-700 underline">Open Settings</a>
+						{/if}
 					</div>
 				{/if}
 

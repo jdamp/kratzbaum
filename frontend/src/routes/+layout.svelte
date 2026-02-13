@@ -25,7 +25,8 @@
 		{ label: 'Plants', icon: Home, href: '/' },
 		{ label: 'Pots', icon: Box, href: '/pots' },
 		{ label: 'Reminders', icon: Droplet, href: '/reminders' },
-		{ label: 'Identify', icon: Search, href: '/identify' }
+		{ label: 'Identify', icon: Search, href: '/identify' },
+		{ label: 'Settings', icon: Settings, href: '/settings' }
 	];
 </script>
 
