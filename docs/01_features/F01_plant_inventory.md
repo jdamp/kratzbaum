@@ -37,7 +37,7 @@ Users can maintain a comprehensive inventory of their plants, tracking essential
 - Display all plant information
 - Show photo gallery with ability to add/remove photos
 - Display care timeline (watered, fertilized, repotted events)
-- Show assigned pot (if any)
+- Show assigned pot (if any) as a clickable link to pot details
 - Quick actions: Water, Fertilize, Repot
 
 ### US-04: Update Plant Information

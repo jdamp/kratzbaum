@@ -4,7 +4,7 @@
 	import { plantService } from '$lib/api/plants';
 	import { potService } from '$lib/api/pots';
 	import type { PlantDetail, CareEvent, CareEventType, PlantPhoto, Pot } from '$lib/api/types';
-	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, X, Check, Plus, Calendar } from 'lucide-svelte';
+	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, X, Check, Plus, Calendar, Box } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 
 	let plant: PlantDetail | null = $state(null);
@@ -315,7 +315,11 @@
 
 			{#if plant.pot_id}
 				<div class="text-sm text-surface-600 mb-4">
-					<span class="font-medium">Pot:</span> {potName || 'Assigned'}
+					<span class="font-medium">Pot:</span>
+					<a href="/pots/{plant.pot_id}" class="ml-1 inline-flex items-center gap-1 text-primary-600 font-medium hover:underline">
+						<Box class="w-4 h-4" />
+						{potName || 'View assigned pot'}
+					</a>
 				</div>
 			{/if}
 
