@@ -25,10 +25,10 @@
 		<p class="text-sm text-surface-600">{pot.diameter_cm}cm × {pot.height_cm}cm</p>
 		
 		<div class="mt-3">
-			{#if pot.assigned_plant_name}
+			{#if pot.plant_name}
 				<span class="chip variant-soft-primary text-xs">
 					<Leaf class="w-3 h-3" />
-					<span>{pot.assigned_plant_name}</span>
+					<span>{pot.plant_name}</span>
 				</span>
 			{:else}
 				<span class="chip variant-soft text-xs">Available</span>

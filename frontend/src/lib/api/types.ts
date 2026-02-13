@@ -67,10 +67,9 @@ export interface Pot {
 	diameter_cm: number;
 	height_cm: number;
 	primary_photo_url: string | null;
-	is_assigned?: boolean;
-	assigned_plant_name?: string | null;
+	plant_id: UUID | null;
+	plant_name: string | null;
 	created_at: string;
-	updated_at: string;
 }
 
 export interface PotCreate {
@@ -81,10 +80,6 @@ export interface PotCreate {
 
 export interface PotDetail extends Pot {
 	photos: PotPhoto[];
-	plant: {
-		id: UUID;
-		name: string;
-	} | null;
 }
 
 export interface PotPhoto {
