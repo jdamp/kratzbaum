@@ -188,6 +188,9 @@ erDiagram
 | updated_at | TIMESTAMPTZ | NOT NULL | Last update timestamp |
 
 ### plant_identifications
+> [!NOTE]
+> This table/model exists in codebase, but identification history persistence is not a planned user-facing feature.
+
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PK | Primary key |

@@ -3,6 +3,11 @@
 ## Overview
 Users can identify plant species by uploading a photo, which is analyzed using the PlantNet API to provide species suggestions.
 
+> [!WARNING]
+> Status: Partially implemented.
+> - Implemented: `POST /api/identify`
+> - Not planned: identification history persistence endpoints
+
 ## User Stories
 
 ### US-01: Identify Plant from Photo
@@ -38,17 +43,6 @@ Users can identify plant species by uploading a photo, which is analyzed using t
 - Show current species vs suggestions
 - Update species on user confirmation
 
-### US-04: View Identification History
-**As a** user  
-**I want to** see past identification attempts  
-**So that** I can review what was suggested
-
-**Acceptance Criteria:**
-- History of identification requests per plant
-- Show photo used, suggestions received, and selection made
-
----
-
 ## PlantNet API Integration
 
 ### API Details
@@ -59,9 +53,14 @@ Users can identify plant species by uploading a photo, which is analyzed using t
 ### Request Parameters
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| images | File[] | One or more plant photos |
-| organs | String[] | Plant part in photo (leaf, flower, fruit, bark) |
+| images | File[] | PlantNet supports one or more plant photos |
+| organs | String[] | PlantNet supports one or more organ hints (leaf, flower, fruit, bark) |
 | lang | String | Language for common names (e.g., "en") |
+
+Current backend adapter behavior (`POST /api/identify`):
+- Sends exactly one uploaded image (`image`) to PlantNet.
+- Sends exactly one organ value (`organ`, default `leaf`).
+- Transforms PlantNet payload to simplified fields used by the frontend.
 
 ### Response Structure
 ```json
@@ -80,28 +79,26 @@ Users can identify plant species by uploading a photo, which is analyzed using t
 
 ---
 
-## Data Model
-
-### PlantIdentification Entity
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| id | UUID | Yes | Primary key |
-| plant_id | UUID | No | FK to Plant (null if standalone) |
-| photo_path | String | Yes | Photo used for identification |
-| organ | Enum | Yes | LEAF, FLOWER, FRUIT, BARK |
-| results | JSON | Yes | API response stored as JSON |
-| selected_species | String | No | User-selected species from results |
-| requested_at | DateTime | Yes | When identification was requested |
-
----
-
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/identify` | Identify plant from photo |
-| POST | `/api/plants/{id}/identify` | Identify and update existing plant |
-| GET | `/api/plants/{id}/identifications` | Get identification history |
+| POST | `/api/identify` | Identify plant from photo (implemented) |
+
+### Implemented Endpoint Contract
+`POST /api/identify` accepts `multipart/form-data` with:
+- `image` (required, image file)
+- `organ` (optional, one of `leaf|flower|fruit|bark`, defaults to `leaf`)
+
+Returns:
+- `results`: top 0-5 transformed species suggestions
+- `remaining_identifications`: upstream PlantNet quota hint when available
+- `error`: populated string when PlantNet call fails; in this case status code is still `200`
+
+Validation errors:
+- Invalid `organ` -> `400`
+- Missing/invalid image mime type -> `400`
+- Empty image file -> `400`
 
 ---
 
@@ -119,6 +116,5 @@ Users can identify plant species by uploading a photo, which is analyzed using t
 
 ### Fallback Strategy
 If PlantNet API is unavailable:
-- Queue identification request for retry
-- Show user that identification is pending
-- Process when API becomes available
+- Current behavior: return `200` with `error` set and `results: []` so UI can surface a user-facing error message.
+- No persistence/retry queue is planned for identification attempts.

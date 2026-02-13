@@ -312,36 +312,45 @@ List unassigned pots.
 ## Plant Identification Endpoints
 
 ### POST /identify
-Identify a plant from photo.
+Identify a plant from photo (proxied to PlantNet API).
+
+**Auth:** Bearer token required.
 
 **Request (multipart/form-data):**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| image | file | Yes | Plant photo |
-| organ | string | Yes | Plant part: leaf, flower, fruit, bark |
-| plant_id | uuid | No | Associate with existing plant |
+| image | file | Yes | Plant photo (must be an image MIME type) |
+| organ | string | No | Plant part: `leaf`, `flower`, `fruit`, `bark` (default: `leaf`) |
 
 **Response (200):**
 ```json
 {
-  "id": "aa0e8400-e29b-41d4-a716-446655440005",
   "results": [
     {
       "score": 0.85,
       "scientific_name": "Monstera deliciosa",
       "common_names": ["Swiss Cheese Plant", "Monster Fruit"],
-      "family": "Araceae"
+      "family": "Araceae",
+      "genus": "Monstera"
     },
     {
       "score": 0.10,
       "scientific_name": "Philodendron bipinnatifidum",
       "common_names": ["Tree Philodendron"],
-      "family": "Araceae"
+      "family": "Araceae",
+      "genus": "Philodendron"
     }
   ],
-  "requested_at": "2024-01-15T10:30:00Z"
+  "error": null,
+  "remaining_identifications": 100
 }
 ```
+
+**Behavior notes:**
+- Service-level PlantNet failures (e.g. missing API key or non-200 upstream response) return `200` with `error` populated and an empty `results` list.
+- Invalid organ value returns `400` with `detail` string.
+- Empty uploads return `400` with `detail` string.
+- Non-image uploads return `400` with `detail` string.
 
 ---
 
