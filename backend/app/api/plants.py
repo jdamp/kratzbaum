@@ -421,6 +421,52 @@ async def delete_photo(
     await db.commit()
 
 
+@router.post("/{plant_id}/photos/{photo_id}/primary", response_model=PlantPhotoResponse)
+async def set_primary_photo(
+    plant_id: UUID,
+    photo_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> PlantPhotoResponse:
+    """Set an existing photo as the plant's primary photo."""
+    target_result = await db.exec(
+        select(PlantPhoto).where(
+            PlantPhoto.id == photo_id, PlantPhoto.plant_id == plant_id
+        )
+    )
+    target_photo = target_result.first()
+
+    if not target_photo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Photo not found",
+        )
+
+    current_primary_result = await db.exec(
+        select(PlantPhoto).where(
+            PlantPhoto.plant_id == plant_id,
+            PlantPhoto.is_primary,
+            PlantPhoto.id != photo_id,
+        )
+    )
+
+    for photo in current_primary_result.all():
+        photo.is_primary = False
+        db.add(photo)
+
+    target_photo.is_primary = True
+    db.add(target_photo)
+    await db.commit()
+    await db.refresh(target_photo)
+
+    return PlantPhotoResponse(
+        id=target_photo.id,
+        url=f"/uploads/plants/{target_photo.file_path}",
+        is_primary=target_photo.is_primary,
+        uploaded_at=target_photo.uploaded_at,
+    )
+
+
 @router.post("/{plant_id}/care-events", response_model=CareEventResponse)
 async def create_care_event(
     plant_id: UUID,

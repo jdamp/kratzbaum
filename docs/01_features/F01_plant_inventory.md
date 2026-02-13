@@ -40,6 +40,7 @@ Users can maintain a comprehensive inventory of their plants, tracking essential
 **Acceptance Criteria:**
 - Display all plant information
 - Show photo gallery with ability to add/remove photos
+- Selecting a gallery thumbnail sets that image as the plant's primary/default photo and persists after reload
 - Display care timeline (watered, fertilized, repotted events)
 - Show assigned pot (if any) as a clickable link to pot details
 - Quick actions: Water, Fertilize, Repot
@@ -126,5 +127,6 @@ Users can maintain a comprehensive inventory of their plants, tracking essential
 | DELETE | `/api/plants/{id}` | Delete plant |
 | POST | `/api/plants/{id}/photos` | Upload photo |
 | DELETE | `/api/plants/{id}/photos/{photo_id}` | Delete photo |
+| POST | `/api/plants/{id}/photos/{photo_id}/primary` | Set existing photo as primary |
 | POST | `/api/plants/{id}/care-events` | Record care event |
 | GET | `/api/plants/{id}/care-events` | Get care history |
