@@ -397,6 +397,7 @@ Identify a plant from photo (proxied to PlantNet API).
 - Invalid organ value returns `400` with `detail` string.
 - Empty uploads return `400` with `detail` string.
 - Non-image uploads return `400` with `detail` string.
+- Frontend usage paths: `/plants/new` and `/plants/{id}` edit modal.
 
 ---
 

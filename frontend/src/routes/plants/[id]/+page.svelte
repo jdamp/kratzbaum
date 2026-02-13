@@ -3,8 +3,17 @@
 	import { page } from '$app/state';
 	import { plantService } from '$lib/api/plants';
 	import { potService } from '$lib/api/pots';
-	import type { PlantDetail, CareEvent, CareEventType, PlantPhoto, Pot } from '$lib/api/types';
-	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, X, Check, Plus, Calendar, Box } from 'lucide-svelte';
+	import { apiClient } from '$lib/api/client';
+	import type {
+		PlantDetail,
+		CareEvent,
+		CareEventType,
+		PlantPhoto,
+		Pot,
+		IdentifyResponse,
+		IdentificationResult
+	} from '$lib/api/types';
+	import { Droplet, Leaf, Flower2, ArrowLeft, Edit2, Trash2, X, Check, Plus, Calendar, Box, Search } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 
 	let plant: PlantDetail | null = $state(null);
@@ -20,6 +29,11 @@
 	let editPotOptions: Pot[] = $state([]);
 	let isLoadingEditPots = $state(false);
 	let isSaving = $state(false);
+	let identifyPhotoId = $state('');
+	let isIdentifyingSpecies = $state(false);
+	let identificationResults = $state<IdentificationResult[]>([]);
+	let identifyError = $state<string | null>(null);
+	let identifyMissingApiKey = $state(false);
 
 	// Photo management state
 	let selectedPhotoIndex = $state(0);
@@ -34,10 +48,19 @@
 
 	const plantId = page.params.id ?? '';
 
+	function getDefaultIdentifyPhotoId(photos: PlantPhoto[]): string {
+		return photos.find((photo) => photo.is_primary)?.id ?? photos[0]?.id ?? '';
+	}
+
 	async function loadPlant(plantIdToLoad: string) {
 		const plantData = await plantService.getPlant(plantIdToLoad);
 		plant = plantData;
 		potName = null;
+		if (plantData.photos.length === 0) {
+			identifyPhotoId = '';
+		} else if (!plantData.photos.some((photo) => photo.id === identifyPhotoId)) {
+			identifyPhotoId = getDefaultIdentifyPhotoId(plantData.photos);
+		}
 
 		if (plantData.pot_id) {
 			try {
@@ -69,6 +92,10 @@
 		editName = plant.name;
 		editSpecies = plant.species || '';
 		editPotId = plant.pot_id || '';
+		identifyPhotoId = getDefaultIdentifyPhotoId(plant.photos);
+		identificationResults = [];
+		identifyError = null;
+		identifyMissingApiKey = false;
 		void loadEditPotOptions(plant.pot_id);
 		showEditModal = true;
 	}
@@ -80,6 +107,74 @@
 		editPotId = '';
 		editPotOptions = [];
 		isLoadingEditPots = false;
+		identifyPhotoId = '';
+		isIdentifyingSpecies = false;
+		identificationResults = [];
+		identifyError = null;
+		identifyMissingApiKey = false;
+	}
+
+	async function handleIdentifySpecies() {
+		if (!plant || !identifyPhotoId) {
+			identifyError = 'Select a photo first';
+			return;
+		}
+
+		const selectedPhoto = plant.photos.find((photo) => photo.id === identifyPhotoId);
+		if (!selectedPhoto) {
+			identifyError = 'Selected photo was not found';
+			return;
+		}
+
+		isIdentifyingSpecies = true;
+		identifyError = null;
+		identifyMissingApiKey = false;
+
+		try {
+			const photoResponse = await fetch(getPhotoUrl(selectedPhoto));
+			if (!photoResponse.ok) {
+				throw new Error('Failed to load selected photo');
+			}
+
+			const photoBlob = await photoResponse.blob();
+			if (!photoBlob.type.startsWith('image/')) {
+				throw new Error('Selected file is not an image');
+			}
+
+			const formData = new FormData();
+			formData.append(
+				'image',
+				new File([photoBlob], `plant-${plant.id}-${selectedPhoto.id}`, {
+					type: photoBlob.type
+				})
+			);
+			formData.append('organ', 'leaf');
+
+			const response = await apiClient.post<IdentifyResponse>('/identify', formData);
+			if (response.error_code === 'MISSING_API_KEY') {
+				identifyMissingApiKey = true;
+				identifyError = 'PlantNet API key is missing. Add your key in Settings to continue.';
+				identificationResults = [];
+			} else if (response.error) {
+				identifyError = response.error;
+				identificationResults = [];
+			} else {
+				identificationResults = response.results || [];
+				if (identificationResults.length === 0) {
+					identifyError = 'No species matches found';
+				}
+			}
+		} catch (err: any) {
+			identifyError = err.message || 'Identification failed';
+			identificationResults = [];
+		} finally {
+			isIdentifyingSpecies = false;
+		}
+	}
+
+	function selectIdentifiedSpecies(result: IdentificationResult) {
+		editSpecies = result.common_names.length > 0 ? result.common_names[0] : result.scientific_name;
+		identificationResults = [];
 	}
 
 	async function loadEditPotOptions(currentPotId: string | null) {
@@ -446,13 +541,64 @@
 				
 				<div>
 					<label for="edit-species" class="block text-sm font-medium text-surface-700 mb-1">Species</label>
-					<input
-						id="edit-species"
-						type="text"
-						bind:value={editSpecies}
-						class="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-						placeholder="e.g. Monstera deliciosa"
-					/>
+					<div class="flex gap-2">
+						<input
+							id="edit-species"
+							type="text"
+							bind:value={editSpecies}
+							class="w-full px-3 py-2 border border-surface-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+							placeholder="e.g. Monstera deliciosa"
+						/>
+						<button
+							type="button"
+							class="btn variant-soft-primary flex items-center gap-1"
+							onclick={handleIdentifySpecies}
+							disabled={isIdentifyingSpecies || !identifyPhotoId}
+						>
+							<Search class="w-4 h-4" />
+							<span>{isIdentifyingSpecies ? 'Identifying...' : 'Identify'}</span>
+						</button>
+					</div>
+					{#if plant && plant.photos.length > 0}
+						<p class="text-xs text-surface-500 mt-2">Choose a photo below, then run Identify.</p>
+					{:else}
+						<p class="text-xs text-surface-500 mt-2">Add a photo below to enable Identify.</p>
+					{/if}
+					{#if identifyError}
+						<div class="alert variant-soft-warning text-sm mt-2">
+							<p>{identifyError}</p>
+							{#if identifyMissingApiKey}
+								<a href="/settings" class="mt-2 inline-flex text-primary-700 underline">Open Settings</a>
+							{/if}
+						</div>
+					{/if}
+					{#if identificationResults.length > 0}
+						<div class="bg-white rounded-lg border border-surface-200 p-3 mt-2 space-y-2">
+							<p class="text-sm font-medium text-surface-600">Apply a suggestion:</p>
+							{#each identificationResults as result}
+								<button
+									type="button"
+									class="w-full text-left p-3 bg-surface-50 rounded-lg border border-surface-200 hover:border-primary-500 hover:bg-primary-50 transition-colors"
+									onclick={() => selectIdentifiedSpecies(result)}
+								>
+									<div class="flex items-center justify-between gap-2">
+										<div class="flex items-center gap-2 min-w-0">
+											<Leaf class="w-4 h-4 text-primary-600 flex-shrink-0" />
+											<div class="min-w-0">
+												<p class="font-medium text-sm truncate">{result.scientific_name}</p>
+												{#if result.common_names.length > 0}
+													<p class="text-xs text-surface-500 truncate">{result.common_names[0]}</p>
+												{/if}
+											</div>
+										</div>
+										<span class="text-sm font-bold text-primary-600 flex-shrink-0">
+											{Math.round(result.score * 100)}%
+										</span>
+									</div>
+								</button>
+							{/each}
+						</div>
+					{/if}
 				</div>
 
 				<div>
@@ -481,15 +627,32 @@
 					{#if plant && plant.photos && plant.photos.length > 0}
 						<div class="grid grid-cols-3 gap-2 mb-3">
 							{#each plant.photos as photo}
-								<div class="relative group">
-									<img 
-										src={getPhotoUrl(photo)}
-										alt="Plant photo"
-										class="w-full h-20 object-cover rounded-lg"
-									/>
+								<div
+									class="relative group rounded-lg ring-2 transition-colors {identifyPhotoId === photo.id ? 'ring-primary-500' : 'ring-transparent'}"
+								>
+									<button
+										type="button"
+										class="w-full rounded-lg overflow-hidden focus-visible:ring-2 focus-visible:ring-primary-500"
+										onclick={() => {
+											identifyPhotoId = photo.id;
+											identificationResults = [];
+											identifyError = null;
+										}}
+									>
+										<img
+											src={getPhotoUrl(photo)}
+											alt="{plant.name} photo"
+											class="w-full h-20 object-cover"
+										/>
+									</button>
 									{#if photo.is_primary}
 										<span class="absolute bottom-1 left-1 bg-primary-500 text-white text-[10px] px-1 py-0.5 rounded">
 											Primary
+										</span>
+									{/if}
+									{#if identifyPhotoId === photo.id}
+										<span class="absolute top-1 left-1 bg-primary-500 text-white text-[10px] px-1 py-0.5 rounded">
+											Identify source
 										</span>
 									{/if}
 									<button
