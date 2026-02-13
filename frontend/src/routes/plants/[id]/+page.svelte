@@ -358,17 +358,17 @@
 					<span>Water</span>
 				</button>
 				<button 
-					class="btn variant-soft flex-1"
+					class="btn variant-soft flex-1 text-amber-700 border-amber-300 hover:bg-amber-100"
 					onclick={() => openCareEventModal('FERTILIZED')}
 				>
-					<Leaf class="w-4 h-4" />
+					<Leaf class="w-4 h-4 text-amber-600" />
 					<span>Fertilize</span>
 				</button>
 				<button 
-					class="btn variant-soft flex-1"
+					class="btn variant-soft flex-1 text-green-700 border-green-300 hover:bg-green-100"
 					onclick={() => openCareEventModal('REPOTTED')}
 				>
-					<Flower2 class="w-4 h-4" />
+					<Flower2 class="w-4 h-4 text-green-600" />
 					<span>Repot</span>
 				</button>
 			</div>
