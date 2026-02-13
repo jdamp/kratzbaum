@@ -7,7 +7,7 @@ Kratzbaum is a self-hosted plant management system that helps users track their 
 1. **Plant Tracking** - Maintain a comprehensive inventory of plants with photos, species, and care history
 2. **Smart Reminders** - Set up customizable reminders for watering and fertilizing schedules
 3. **Pot Inventory** - Track available pots and their assignments to plants
-4. **Species Recognition** - Identify plants from photos using the PlantNet API
+4. **Species Recognition** - Identify plants from photos via `POST /api/identify` (PlantNet-backed)
 
 ---
 

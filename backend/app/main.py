@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, plants, pots, reminders
+from app.api import auth, identify, plants, pots, reminders
 from app.api import settings as settings_api
 from app.core.config import get_settings
 from app.core.database import init_db
@@ -66,6 +66,7 @@ app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads"
 
 # Include routers
 app.include_router(auth.router, prefix="/api")
+app.include_router(identify.router, prefix="/api")
 app.include_router(plants.router, prefix="/api")
 app.include_router(pots.router, prefix="/api")
 app.include_router(reminders.router, prefix="/api")
