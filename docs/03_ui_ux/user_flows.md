@@ -48,7 +48,11 @@ flowchart TD
     C -->|No| K[Browse Plants]
     K --> L[Select Plant]
     L --> M[View Details]
-    M --> N{Action Needed?}
+    M --> R{Assigned Pot?}
+    R -->|Yes| S["Tap Pot Name"]
+    S --> T[Pot Detail View]
+    T --> M
+    R -->|No| N{Action Needed?}
     N -->|Water| O["Tap Water Button"]
     N -->|Fertilize| P["Tap Fertilize Button"]
     N -->|Repot| Q["Tap Repot Button"]

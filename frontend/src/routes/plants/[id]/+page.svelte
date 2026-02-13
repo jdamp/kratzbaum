@@ -315,7 +315,10 @@
 
 			{#if plant.pot_id}
 				<div class="text-sm text-surface-600 mb-4">
-					<span class="font-medium">Pot:</span> {potName || 'Assigned'}
+					<span class="font-medium">Pot:</span>
+					<a href="/pots/{plant.pot_id}" class="ml-1 text-primary-600 hover:underline">
+						{potName || 'View assigned pot'}
+					</a>
 				</div>
 			{/if}
 
