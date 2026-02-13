@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { reminderService } from '$lib/api/reminders';
-	import type { Reminder } from '$lib/api/types';
+	import type { ReminderListItem } from '$lib/api/types';
 	import { Droplet, Leaf, Clock, CheckCircle, Bell } from 'lucide-svelte';
 
-	let reminders: Reminder[] = $state([]);
+	let reminders: ReminderListItem[] = $state([]);
 	let isLoading = $state(true);
 
 	onMount(async () => {
@@ -19,7 +19,7 @@
 
 	async function handleComplete(id: string) {
 		try {
-			await reminderService.completeReminder(id);
+			await reminderService.deleteReminder(id);
 			reminders = await reminderService.getReminders();
 		} catch (err) {
 			console.error(err);
