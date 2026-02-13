@@ -22,6 +22,58 @@ class ApiClient {
 		}
 	}
 
+	private async parseResponseBody(response: Response): Promise<unknown> {
+		const contentType = response.headers.get('content-type');
+
+		if (contentType?.includes('application/json')) {
+			try {
+				return await response.json();
+			} catch {
+				return null;
+			}
+		}
+
+		const text = await response.text();
+		if (!text) {
+			return null;
+		}
+
+		try {
+			return JSON.parse(text);
+		} catch {
+			return text;
+		}
+	}
+
+	private extractErrorMessage(payload: unknown): string {
+		if (typeof payload === 'string' && payload.trim()) {
+			return payload;
+		}
+
+		if (!payload || typeof payload !== 'object') {
+			return 'API request failed';
+		}
+
+		const error = payload as ApiError;
+
+		if (typeof error.detail === 'string' && error.detail.trim()) {
+			return error.detail;
+		}
+
+		if (error.detail && typeof error.detail === 'object') {
+			const message = error.detail.message;
+			if (typeof message === 'string' && message.trim()) {
+				return message;
+			}
+		}
+
+		if (typeof error.message === 'string' && error.message.trim()) {
+			return error.message;
+		}
+
+		return 'API request failed';
+	}
+
 	async request<T>(
 		path: string,
 		options: RequestInit = {}
@@ -42,15 +94,14 @@ class ApiClient {
 			headers
 		});
 
-		if (response.status === 204) {
-			return {} as T;
-		}
-
-		const data = await response.json();
+		const data = response.status === 204 ? null : await this.parseResponseBody(response);
 
 		if (!response.ok) {
-			const error = data as ApiError;
-			throw new Error(error.detail?.message || 'API request failed');
+			throw new Error(this.extractErrorMessage(data));
+		}
+
+		if (response.status === 204) {
+			return {} as T;
 		}
 
 		return data as T;
