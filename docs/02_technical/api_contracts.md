@@ -222,6 +222,19 @@ Delete a plant.
 
 **Response (204):** No content
 
+### POST /plants/{id}/photos/{photo_id}/primary
+Set an existing plant photo as primary/default.
+
+**Response (200):**
+```json
+{
+  "id": "770e8400-e29b-41d4-a716-446655440002",
+  "url": "/uploads/plants/abc123.jpg",
+  "is_primary": true,
+  "uploaded_at": "2024-01-15T10:30:00Z"
+}
+```
+
 ---
 
 ## Care Events Endpoints

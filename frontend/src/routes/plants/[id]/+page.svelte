@@ -39,6 +39,7 @@
 	let selectedPhotoIndex = $state(0);
 	let isUploadingPhoto = $state(false);
 	let deletingPhotoId = $state<string | null>(null);
+	let settingPrimaryPhotoId = $state<string | null>(null);
 
 	// Care event modal state
 	let showCareEventModal = $state(false);
@@ -56,6 +57,15 @@
 		const plantData = await plantService.getPlant(plantIdToLoad);
 		plant = plantData;
 		potName = null;
+		const primaryPhotoIndex = plantData.photos.findIndex((photo) => photo.is_primary);
+		if (primaryPhotoIndex >= 0) {
+			selectedPhotoIndex = primaryPhotoIndex;
+		} else {
+			selectedPhotoIndex =
+				plantData.photos.length > 0
+					? Math.min(selectedPhotoIndex, plantData.photos.length - 1)
+					: 0;
+		}
 		if (plantData.photos.length === 0) {
 			identifyPhotoId = '';
 		} else if (!plantData.photos.some((photo) => photo.id === identifyPhotoId)) {
@@ -252,6 +262,27 @@
 		}
 	}
 
+	async function handleSelectPhoto(index: number) {
+		if (!plant) return;
+		selectedPhotoIndex = index;
+		const selectedPhoto = plant.photos[index];
+		if (!selectedPhoto || selectedPhoto.is_primary || settingPrimaryPhotoId) return;
+
+		settingPrimaryPhotoId = selectedPhoto.id;
+		try {
+			await plantService.setPrimaryPhoto(plant.id, selectedPhoto.id);
+			await loadPlant(plant.id);
+			if (plant) {
+				const refreshedIndex = plant.photos.findIndex((photo) => photo.id === selectedPhoto.id);
+				selectedPhotoIndex = refreshedIndex >= 0 ? refreshedIndex : 0;
+			}
+		} catch (err) {
+			console.error('Failed to set primary photo:', err);
+		} finally {
+			settingPrimaryPhotoId = null;
+		}
+	}
+
 
 
 	async function handleDeletePhoto(photoId: string) {
@@ -377,8 +408,9 @@
 					{#each plant.photos as photo, index}
 						<button
 							type="button"
-							class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all {selectedPhotoIndex === index ? 'border-primary-500 ring-2 ring-primary-200' : 'border-surface-200 hover:border-primary-300'}"
-							onclick={() => selectedPhotoIndex = index}
+							class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all {selectedPhotoIndex === index ? 'border-primary-500 ring-2 ring-primary-200' : 'border-surface-200 hover:border-primary-300'} {settingPrimaryPhotoId === photo.id ? 'opacity-60 cursor-wait' : ''}"
+							onclick={() => handleSelectPhoto(index)}
+							disabled={settingPrimaryPhotoId !== null}
 						>
 							<img 
 								src={getPhotoUrl(photo)}

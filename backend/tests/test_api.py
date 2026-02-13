@@ -473,6 +473,74 @@ class TestPlantEndpoints:
 
         assert response.status_code == 404
 
+    @pytest.mark.asyncio
+    async def test_set_primary_photo_switches_primary(
+        self, client: AsyncClient, auth_headers: dict
+    ):
+        """Test selecting an existing photo updates primary state."""
+        create_response = await client.post(
+            "/api/plants",
+            json={"name": "Gallery Plant"},
+            headers=auth_headers,
+        )
+        plant_id = create_response.json()["id"]
+
+        first_upload = await client.post(
+            f"/api/plants/{plant_id}/photos?is_primary=true",
+            files={"file": ("primary.jpg", b"fake-jpg-content-1", "image/jpeg")},
+            headers=auth_headers,
+        )
+        assert first_upload.status_code == 200
+        first_photo_id = first_upload.json()["id"]
+
+        second_upload = await client.post(
+            f"/api/plants/{plant_id}/photos?is_primary=false",
+            files={"file": ("secondary.jpg", b"fake-jpg-content-2", "image/jpeg")},
+            headers=auth_headers,
+        )
+        assert second_upload.status_code == 200
+        second_photo_id = second_upload.json()["id"]
+
+        response = await client.post(
+            f"/api/plants/{plant_id}/photos/{second_photo_id}/primary",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["id"] == second_photo_id
+        assert response.json()["is_primary"] is True
+
+        detail_response = await client.get(
+            f"/api/plants/{plant_id}",
+            headers=auth_headers,
+        )
+        assert detail_response.status_code == 200
+        detail_data = detail_response.json()
+        assert detail_data["primary_photo_url"] == response.json()["url"]
+
+        photos_by_id = {photo["id"]: photo for photo in detail_data["photos"]}
+        assert photos_by_id[first_photo_id]["is_primary"] is False
+        assert photos_by_id[second_photo_id]["is_primary"] is True
+
+    @pytest.mark.asyncio
+    async def test_set_primary_photo_not_found(
+        self, client: AsyncClient, auth_headers: dict
+    ):
+        """Test selecting a missing photo returns 404."""
+        create_response = await client.post(
+            "/api/plants",
+            json={"name": "Plant"},
+            headers=auth_headers,
+        )
+        plant_id = create_response.json()["id"]
+
+        response = await client.post(
+            f"/api/plants/{plant_id}/photos/00000000-0000-0000-0000-000000000000/primary",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Photo not found"
+
 
 class TestPotEndpoints:
     """Tests for pot CRUD endpoints."""
