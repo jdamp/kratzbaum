@@ -112,12 +112,15 @@ export interface AuthResponse {
 }
 
 export interface ApiError {
-	detail: {
-		code: string;
-		message: string;
-		errors?: Array<{
-			field: string;
-			message: string;
-		}>;
-	};
+	detail?:
+		| string
+		| {
+				code?: string;
+				message?: string;
+				errors?: Array<{
+					field: string;
+					message: string;
+				}>;
+		  };
+	message?: string;
 }
