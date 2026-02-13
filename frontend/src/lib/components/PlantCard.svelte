@@ -1,25 +1,98 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { CareEventType, type PlantListItem } from '$lib/api/types';
-	import { Droplet, Leaf } from 'lucide-svelte';
+	import { AlertCircle, Check, Droplet, Leaf, Loader2 } from 'lucide-svelte';
 	import { plantService } from '$lib/api/plants';
 
 	let { plant }: { plant: PlantListItem } = $props();
+	type ActionState = 'idle' | 'pending' | 'success' | 'error';
 
-	async function handleWater() {
-		try {
-			await plantService.recordCareEvent(plant.id, CareEventType.WATERED);
-			// Ideally trigger a refresh or local update
-		} catch (err) {
-			console.error(err);
+	let waterState = $state<ActionState>('idle');
+	let fertilizeState = $state<ActionState>('idle');
+	let feedbackMessage = $state<string | null>(null);
+	let waterResetTimeout: ReturnType<typeof setTimeout> | null = null;
+	let fertilizeResetTimeout: ReturnType<typeof setTimeout> | null = null;
+	let feedbackResetTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	onDestroy(() => {
+		if (waterResetTimeout) clearTimeout(waterResetTimeout);
+		if (fertilizeResetTimeout) clearTimeout(fertilizeResetTimeout);
+		if (feedbackResetTimeout) clearTimeout(feedbackResetTimeout);
+	});
+
+	function resetActionState(action: 'water' | 'fertilize', delayMs: number) {
+		const currentTimeout = action === 'water' ? waterResetTimeout : fertilizeResetTimeout;
+		if (currentTimeout) clearTimeout(currentTimeout);
+
+		const timeout = setTimeout(() => {
+			if (action === 'water') {
+				waterState = 'idle';
+			} else {
+				fertilizeState = 'idle';
+			}
+		}, delayMs);
+
+		if (action === 'water') {
+			waterResetTimeout = timeout;
+		} else {
+			fertilizeResetTimeout = timeout;
 		}
 	}
 
-	async function handleFertilize() {
+	async function runCareAction(action: 'water' | 'fertilize', eventType: CareEventType) {
+		if (action === 'water' && waterState === 'pending') return;
+		if (action === 'fertilize' && fertilizeState === 'pending') return;
+
+		feedbackMessage = null;
+		if (action === 'water') {
+			waterState = 'pending';
+		} else {
+			fertilizeState = 'pending';
+		}
+
 		try {
-			await plantService.recordCareEvent(plant.id, CareEventType.FERTILIZED);
+			await plantService.recordCareEvent(plant.id, eventType);
+			if (action === 'water') {
+				waterState = 'success';
+				resetActionState('water', 900);
+			} else {
+				fertilizeState = 'success';
+				resetActionState('fertilize', 900);
+			}
 		} catch (err) {
 			console.error(err);
+			setTemporaryFeedbackMessage('Could not save care event. Please try again.', 2200);
+			if (action === 'water') {
+				waterState = 'error';
+				resetActionState('water', 1400);
+			} else {
+				fertilizeState = 'error';
+				resetActionState('fertilize', 1400);
+			}
 		}
+	}
+
+	function getActionClasses(baseClasses: string, state: ActionState) {
+		if (state === 'pending') return `${baseClasses} opacity-70 cursor-wait`;
+		if (state === 'success') return `${baseClasses} !bg-green-100 !text-green-700 !border-green-300`;
+		if (state === 'error') return `${baseClasses} !bg-red-100 !text-red-700 !border-red-300`;
+		return baseClasses;
+	}
+
+	function setTemporaryFeedbackMessage(message: string, delayMs: number) {
+		feedbackMessage = message;
+		if (feedbackResetTimeout) clearTimeout(feedbackResetTimeout);
+		feedbackResetTimeout = setTimeout(() => {
+			feedbackMessage = null;
+		}, delayMs);
+	}
+
+	async function handleWater() {
+		await runCareAction('water', CareEventType.WATERED);
+	}
+
+	async function handleFertilize() {
+		await runCareAction('fertilize', CareEventType.FERTILIZED);
 	}
 </script>
 
@@ -62,18 +135,47 @@
 
 	<footer class="p-4 pt-0 flex gap-2">
 		<button 
-			class="btn btn-sm variant-soft-primary flex-1"
+			class={getActionClasses('btn btn-sm variant-soft-primary flex-1', waterState)}
 			onclick={handleWater}
+			disabled={waterState === 'pending'}
+			aria-busy={waterState === 'pending'}
 		>
-			<Droplet class="w-4 h-4" />
-			<span>Water</span>
+			{#if waterState === 'pending'}
+				<Loader2 class="w-4 h-4 animate-spin" />
+				<span>Saving...</span>
+			{:else if waterState === 'success'}
+				<Check class="w-4 h-4" />
+				<span>Saved</span>
+			{:else if waterState === 'error'}
+				<AlertCircle class="w-4 h-4" />
+				<span>Retry</span>
+			{:else}
+				<Droplet class="w-4 h-4" />
+				<span>Water</span>
+			{/if}
 		</button>
 		<button 
-			class="btn btn-sm variant-soft-secondary flex-1"
+			class={getActionClasses('btn btn-sm variant-soft-secondary flex-1', fertilizeState)}
 			onclick={handleFertilize}
+			disabled={fertilizeState === 'pending'}
+			aria-busy={fertilizeState === 'pending'}
 		>
-			<Leaf class="w-4 h-4" />
-			<span>Fertilize</span>
+			{#if fertilizeState === 'pending'}
+				<Loader2 class="w-4 h-4 animate-spin" />
+				<span>Saving...</span>
+			{:else if fertilizeState === 'success'}
+				<Check class="w-4 h-4" />
+				<span>Saved</span>
+			{:else if fertilizeState === 'error'}
+				<AlertCircle class="w-4 h-4" />
+				<span>Retry</span>
+			{:else}
+				<Leaf class="w-4 h-4" />
+				<span>Fertilize</span>
+			{/if}
 		</button>
 	</footer>
+	{#if feedbackMessage}
+		<p class="px-4 pb-4 text-xs text-red-600">{feedbackMessage}</p>
+	{/if}
 </div>
