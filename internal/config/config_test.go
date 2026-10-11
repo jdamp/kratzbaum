@@ -19,6 +19,35 @@ func TestDefaults(t *testing.T) {
 	}
 }
 
+func TestPreservesOIDCIssuer(t *testing.T) {
+	for _, issuer := range []string{
+		"https://auth.example.com",
+		"https://auth.example.com/",
+		"https://auth.example.com///",
+		"https://auth.example.com/application/o/kratzbaum",
+		"https://auth.example.com/application/o/kratzbaum/",
+		"https://auth.example.com/application/o/kratzbaum///",
+	} {
+		t.Run(issuer, func(t *testing.T) {
+			for _, key := range []string{"DATABASE_DRIVER", "DATABASE_URL", "APP_TIMEZONE", "MAX_UPLOAD_BYTES", "MAX_IMAGE_PIXELS", "PLANTNET_API_URL"} {
+				t.Setenv(key, "")
+			}
+			t.Setenv("AUTH_MODE", "oidc")
+			t.Setenv("OIDC_ISSUER", issuer)
+			t.Setenv("OIDC_CLIENT_ID", "test-client")
+			t.Setenv("OIDC_CLIENT_SECRET", "test-secret")
+			t.Setenv("OIDC_REDIRECT_URL", "https://plants.example/auth/callback")
+			cfg, err := Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.OIDCIssuer != issuer {
+				t.Fatalf("issuer = %q, want %q", cfg.OIDCIssuer, issuer)
+			}
+		})
+	}
+}
+
 func TestRejectsInvalidRuntimeConfiguration(t *testing.T) {
 	for _, tc := range []struct{ key, value, contains string }{
 		{"AUTH_MODE", "password", "AUTH_MODE"},

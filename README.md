@@ -46,4 +46,6 @@ Publication uses the repository's automatic `GITHUB_TOKEN` with `packages: write
 
 Stop the app for a consistent SQLite backup, then copy the entire `/data` directory so the database and photos stay together. For PostgreSQL, take a database dump and copy `/data/media` under a brief maintenance window. Restore both before starting the app; migrations run automatically at startup. Test restores periodically.
 
-OIDC deployments need an HTTPS callback URL matching `OIDC_REDIRECT_URL`; all accepted users share the same collection. PlantNet is optional and should only be invoked through an explicit identification action. Standard browser service workers require HTTPS (localhost is allowed for development).
+OIDC deployments need an HTTPS callback URL matching `OIDC_REDIRECT_URL`; all accepted users share the same collection. Set `OIDC_ISSUER` to the exact issuer advertised by the provider's discovery document, including any trailing slash. For example, an Authentik per-provider issuer can be `https://auth.example.com/application/o/kratzbaum/`. Discovery and identity-token issuers must match this identifier exactly.
+
+PlantNet is optional and should only be invoked through an explicit identification action. Standard browser service workers require HTTPS (localhost is allowed for development).

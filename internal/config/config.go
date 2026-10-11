@@ -40,7 +40,7 @@ func Load() (Config, error) {
 		MediaDir:          env("MEDIA_DIR", "./data/media"),
 		Timezone:          env("APP_TIMEZONE", "UTC"),
 		AuthMode:          strings.ToLower(env("AUTH_MODE", "no")),
-		OIDCIssuer:        strings.TrimRight(os.Getenv("OIDC_ISSUER"), "/"),
+		OIDCIssuer:        os.Getenv("OIDC_ISSUER"),
 		OIDCClientID:      os.Getenv("OIDC_CLIENT_ID"),
 		OIDCClientSecret:  os.Getenv("OIDC_CLIENT_SECRET"),
 		OIDCRedirectURL:   os.Getenv("OIDC_REDIRECT_URL"),
