@@ -1,0 +1,21 @@
+services:
+  kratzbaum:
+    build: .
+    image: ghcr.io/example/kratzbaum:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      LISTEN_ADDR: :8080
+      DATABASE_DRIVER: sqlite
+      DATABASE_URL: /data/kratzbaum.db
+      DATA_DIR: /data
+      MEDIA_DIR: /data/media
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Berlin}
+      AUTH_MODE: ${AUTH_MODE:-no}
+      HEIF_CONVERT: heif-convert
+      PLANTNET_API_KEY: ${PLANTNET_API_KEY:-}
+    volumes:
+      - kratzbaum-data:/data
+volumes:
+  kratzbaum-data:

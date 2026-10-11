@@ -1,0 +1,15 @@
+.git
+node_modules
+web/node_modules
+web/dist
+data
+*.db
+*.db-shm
+*.db-wal
+Dockerfile
+.gitignore
+README.md
+compose.yaml
+deploy
+openspec
+.agents

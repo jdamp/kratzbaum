@@ -1,0 +1,10 @@
+/web/node_modules/
+/web/dist/
+/web/test-results/
+/data/
+/.env
+/coverage/
+.agents/
+*.db
+*.db-shm
+*.db-wal

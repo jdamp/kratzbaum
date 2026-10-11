@@ -1,0 +1,16 @@
+services:
+  postgres-test:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: kratzbaum_test
+      POSTGRES_PASSWORD: kratzbaum_test
+      POSTGRES_DB: kratzbaum_test
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kratzbaum_test -d kratzbaum_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql

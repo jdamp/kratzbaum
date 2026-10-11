@@ -1,0 +1,11 @@
+services:
+  kratzbaum:
+    build: ..
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file: postgres.env
+    volumes:
+      - kratzbaum-media:/data/media
+volumes:
+  kratzbaum-media:
