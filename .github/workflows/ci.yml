@@ -1,0 +1,143 @@
+name: CI and image release
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Do not cancel main runs: every passing push gets its own version.
+jobs:
+  backend:
+    name: Go and database tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: kratzbaum_test
+          POSTGRES_PASSWORD: kratzbaum_test
+          POSTGRES_DB: kratzbaum_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd 'pg_isready -U kratzbaum_test -d kratzbaum_test'
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      KRATZBAUM_TEST_POSTGRES_URL: postgres://kratzbaum_test:kratzbaum_test@127.0.0.1:5432/kratzbaum_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install PostgreSQL 18 clients
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-18
+          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
+      - name: Build embedded frontend
+        working-directory: web
+        run: npm ci --legacy-peer-deps --no-audit --no-fund && npm run build
+      - name: Run backend tests and require integration coverage
+        run: bash scripts/ci/backend-tests.sh
+
+  frontend:
+    name: Frontend tests and type checking
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - run: npm test
+      - run: npm run typecheck
+
+  container:
+    name: Container ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [browser-tests-result, smoke]
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-buildkit
+      - name: Run container checks
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          buildctl build --progress plain --frontend dockerfile.v0 \
+            --local context=. --local dockerfile=. \
+            --opt platform=linux/amd64 --opt "target=$TARGET"
+
+  publish:
+    name: Publish image
+    needs: [backend, frontend, container]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-buildkit
+      - name: Publish production image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          DOCKER_CONFIG: ${{ runner.temp }}/ghcr-auth
+          IMAGE_REPOSITORY: ghcr.io/${{ github.repository }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$DOCKER_CONFIG"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          node <<'JS'
+          const fs = require('node:fs');
+          const auth = Buffer.from(`${process.env.GHCR_USER}:${process.env.GHCR_TOKEN}`).toString('base64');
+          fs.writeFileSync(`${process.env.DOCKER_CONFIG}/config.json`, JSON.stringify({auths: {'ghcr.io': {auth}}}), {mode: 0o600});
+          JS
+          unset GHCR_TOKEN
+          image="${IMAGE_REPOSITORY,,}"
+          version="0.1.$GITHUB_RUN_NUMBER"
+          buildctl build --progress plain --frontend dockerfile.v0 \
+            --local context=. --local dockerfile=. \
+            --opt target=production --opt platform=linux/amd64 \
+            --opt "label:org.opencontainers.image.source=$SOURCE_URL" \
+            --opt "label:org.opencontainers.image.revision=$GITHUB_SHA" \
+            --opt "label:org.opencontainers.image.version=$version" \
+            --output "type=image,\"name=$image:latest,$image:$version\",push=true" \
+            --metadata-file "$RUNNER_TEMP/image-metadata.json"
+          digest=$(jq -r '."containerimage.digest"' "$RUNNER_TEMP/image-metadata.json")
+          {
+            echo "Published $image:latest and $image:$version"
+            echo "Digest: $digest"
+          } >> "$GITHUB_STEP_SUMMARY"

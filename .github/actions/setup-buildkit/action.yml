@@ -1,0 +1,25 @@
+name: Set up BuildKit
+description: Install a pinned buildctl and start a local BuildKit daemon on a Linux amd64 runner
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        install_dir="$RUNNER_TEMP/buildkit"
+        mkdir -p "$install_dir"
+        curl -fsSL --retry 3 https://github.com/moby/buildkit/releases/download/v0.25.1/buildkit-v0.25.1.linux-amd64.tar.gz -o "$install_dir/buildkit.tar.gz"
+        echo '85aa27c480fc9159705d21a3e66abe305f8dc708b8aeecd1e87bbc5c3de98642  '"$install_dir/buildkit.tar.gz" | sha256sum --check
+        tar -xzf "$install_dir/buildkit.tar.gz" -C "$install_dir"
+        echo "$install_dir/bin" >> "$GITHUB_PATH"
+        echo 'BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock' >> "$GITHUB_ENV"
+        sudo env "PATH=$install_dir/bin:$PATH" "$install_dir/bin/buildkitd" --addr unix:///run/buildkit/buildkitd.sock > "$RUNNER_TEMP/buildkit.log" 2>&1 &
+        for attempt in {1..60}; do
+          if sudo "$install_dir/bin/buildctl" debug workers >/dev/null 2>&1; then
+            sudo chown "$(id -u):$(id -g)" /run/buildkit/buildkitd.sock
+            exit 0
+          fi
+          sleep 1
+        done
+        cat "$RUNNER_TEMP/buildkit.log"
+        exit 1

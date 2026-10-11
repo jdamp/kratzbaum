@@ -26,6 +26,22 @@ For external PostgreSQL, copy `deploy/postgres.env.example` to `deploy/postgres.
 
 Supported configuration: `LISTEN_ADDR`, `DATABASE_DRIVER=sqlite|postgres`, `DATABASE_URL`, `DATA_DIR`, `MEDIA_DIR`, `APP_TIMEZONE`, `AUTH_MODE=no|oidc`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URL`, `PLANTNET_API_KEY`, `PLANTNET_API_URL`, `HEIF_CONVERT`, `MAX_UPLOAD_BYTES`, and `MAX_IMAGE_PIXELS`. Invalid database/auth/timezone configuration fails startup. Keep database credentials, OIDC secrets, and PlantNet keys outside source control.
 
+## Published images and versions
+
+GitHub Actions runs Go (SQLite and PostgreSQL 18, including backup/restore), frontend unit/type checks, browser checks, and container HEIC smoke tests on pull requests and pushes to main. Every passing push to main publishes the production image to GHCR:
+
+```sh
+docker pull ghcr.io/jdamp/kratzbaum:latest
+# Select a particular published workflow run, for example:
+docker pull ghcr.io/jdamp/kratzbaum:0.1.42
+```
+
+Use that image in your deployment with the same environment and persistent mounts described above. The Compose examples build locally; to use GHCR, remove the app service's `build` setting and set its `image` to `ghcr.io/jdamp/kratzbaum:latest` (or a published version).
+
+Versions are `0.1.<GitHub Actions run number>`. PRs and failed runs consume numbers, so gaps are expected. Reruns reuse the version and may replace its image. `latest` follows publication completion order; overlapping runs or rerunning an older run can move it to an older commit. Both tags for a publication identify the same image. For exact pinning or rollback, use `ghcr.io/jdamp/kratzbaum@sha256:<digest>`; each publication's Actions summary includes its digest. Keep the CI workflow identity stable; if its numbering is reset, change the version prefix before publishing again.
+
+Publication uses the repository's automatic `GITHUB_TOKEN` with `packages: write`; no PAT secret is required. After the first publication, check the package settings on GitHub: make the package public for anonymous homelab pulls, or authenticate your deployment for private pulls. If the package already exists, grant this repository Actions access. Actions and package publishing must be enabled for the repository. Publication is initially linux/amd64 only.
+
 ## Backups
 
 Stop the app for a consistent SQLite backup, then copy the entire `/data` directory so the database and photos stay together. For PostgreSQL, take a database dump and copy `/data/media` under a brief maintenance window. Restore both before starting the app; migrations run automatically at startup. Test restores periodically.
