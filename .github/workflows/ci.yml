@@ -119,7 +119,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$DOCKER_CONFIG"
-          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          trap 'docker rm -f kratzbaum-release-check >/dev/null 2>&1 || true; rm -rf "$DOCKER_CONFIG"' EXIT
           node <<'JS'
           const fs = require('node:fs');
           const auth = Buffer.from(`${process.env.GHCR_USER}:${process.env.GHCR_TOKEN}`).toString('base64');
@@ -137,7 +137,34 @@ jobs:
             --output "type=image,\"name=$image:latest,$image:$version\",push=true" \
             --metadata-file "$RUNNER_TEMP/image-metadata.json"
           digest=$(jq -r '."containerimage.digest"' "$RUNNER_TEMP/image-metadata.json")
+          # Pull from GHCR and test the actual published bytes, not a local build.
+          docker pull "$image:$version"
+          docker image inspect "$image:$version" | jq -e \
+            --arg digest "$image@$digest" --arg version "$version" \
+            --arg revision "$GITHUB_SHA" --arg source "$SOURCE_URL" '
+              .[0] | (.RepoDigests | index($digest) != null) and
+              (.Config.Labels["org.opencontainers.image.version"] == $version) and
+              (.Config.Labels["org.opencontainers.image.revision"] == $revision) and
+              (.Config.Labels["org.opencontainers.image.source"] == $source)'
+          docker pull "$image:latest"
+          docker image inspect "$image:latest" --format '{{json .RepoDigests}}'
+          docker run --detach --name kratzbaum-release-check "$image@$digest"
+          ready=0
+          for attempt in {1..30}; do
+            if docker exec kratzbaum-release-check curl -fsS http://127.0.0.1:8080/healthz; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != 1 ]; then
+            docker logs kratzbaum-release-check
+            exit 1
+          fi
+          docker exec kratzbaum-release-check curl -fsS http://127.0.0.1:8080/ >/dev/null
+          docker exec kratzbaum-release-check sh -c 'test "$(id -u)" = 10001 && command -v heif-convert'
           {
             echo "Published $image:latest and $image:$version"
             echo "Digest: $digest"
+            echo "Verified GHCR pull, version/revision/source labels, non-root startup, frontend, and health endpoint."
           } >> "$GITHUB_STEP_SUMMARY"
