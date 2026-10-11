@@ -10,4 +10,16 @@ Verified locally on 2026-10-11:
 - Pinned BuildKit v0.25.1 archive checksum and client execution: verified. Hosted daemon startup uses sudo and remains a hosted-run verification item.
 - bash syntax check, git diff --check, and openspec strict validation: pass.
 
-Remaining task 3.3 requires the first GitHub main run: confirm hosted setup, GITHUB_TOKEN package access, registry tags/digest/labels, and startup of the pulled image. No commit, remote push, or registry publication was performed in this implementation session.
+## Hosted verification
+
+Completed task 3.3 on 2026-10-11 using https://github.com/jdamp/kratzbaum/actions/runs/38135153066 (workflow run number 4, commit 1aeaf7c8fe302979c0366385ce9771941f481ba2).
+
+- All frontend, backend/database, browser, and HEIC smoke jobs passed.
+- GHCR publication succeeded using GITHUB_TOKEN.
+- Both ghcr.io/jdamp/kratzbaum:0.1.4 and latest were pulled and resolved to sha256:5657fa27aec28424e21c0eddf5bf94e8bafd570f0a02a36e4d5ffeb57587527a.
+- The pulled version image passed explicit version/revision/source-label checks.
+- Running that digest returned HTTP success for the frontend and health endpoint, reported {"status":"ok"}, ran as UID 10001, and contained /usr/bin/heif-convert.
+- Earlier hosted failures exposed the BuildKit socket parent-directory permission and PostgreSQL health-option quoting issues; both were corrected and verified by the successful run. Failed validation blocked publication as designed.
+- Every future publication now repeats the registry pull, label checks, and runtime checks in the publication job.
+
+All nine implementation tasks are complete. The verification-record commit is another main push and therefore receives its own automatic release when checks pass.

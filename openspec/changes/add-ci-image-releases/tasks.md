@@ -14,4 +14,4 @@
 
 - [x] 3.1 Update README container instructions with the GHCR path, latest and version examples, expected numbering gaps, rerun behavior, completion-order latest updates, digest pinning, and initial package access setup; verify examples agree with workflow configuration.
 - [x] 3.2 Run actionlint and the required checks locally where supported, then review event/permission/failure gates against the image-releases scenarios; record results and any hosted-only verification remaining.
-- [ ] 3.3 On the first authorized GitHub main run, verify successful checks, two published tags with matching digests and labels, and startup of the pulled production image; record the hosted run and registry evidence, leaving this task pending until that evidence is available.
+- [x] 3.3 On the first authorized GitHub main run, verify successful checks, two published tags with matching digests and labels, and startup of the pulled production image; record the hosted run and registry evidence, leaving this task pending until that evidence is available.
