@@ -16,7 +16,9 @@ runs:
         sudo env "PATH=$install_dir/bin:$PATH" "$install_dir/bin/buildkitd" --addr unix:///run/buildkit/buildkitd.sock > "$RUNNER_TEMP/buildkit.log" 2>&1 &
         for attempt in {1..60}; do
           if sudo "$install_dir/bin/buildctl" debug workers >/dev/null 2>&1; then
+            sudo chmod 755 /run/buildkit
             sudo chown "$(id -u):$(id -g)" /run/buildkit/buildkitd.sock
+            "$install_dir/bin/buildctl" debug workers
             exit 0
           fi
           sleep 1
