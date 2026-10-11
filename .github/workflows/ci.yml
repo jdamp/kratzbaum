@@ -25,7 +25,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd 'pg_isready -U kratzbaum_test -d kratzbaum_test'
+          --health-cmd "pg_isready -U kratzbaum_test -d kratzbaum_test"
           --health-interval 2s --health-timeout 3s --health-retries 30
     env:
       KRATZBAUM_TEST_POSTGRES_URL: postgres://kratzbaum_test:kratzbaum_test@127.0.0.1:5432/kratzbaum_test?sslmode=disable
