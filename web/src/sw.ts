@@ -8,7 +8,7 @@ declare let self: ServiceWorkerGlobalScope & {__WB_MANIFEST: Array<{url:string;r
 clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
-registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'),{denylist:[/^\/api\//,/^\/media\//]}));
+registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'),{denylist:[/^\/api\//,/^\/media\//,/^\/auth\//]}));
 const authFailure={async fetchDidSucceed({response}:{response:Response}){if(response.status===401||response.status===403)await clearCollectionCaches();return response;}};
 function context(request:Request){return (request.headers.get('X-Kratzbaum-Cache-Context')||'public').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,80)||'public';}
 registerRoute(({request,url})=>request.method==='GET'&&url.origin===self.location.origin&&(
