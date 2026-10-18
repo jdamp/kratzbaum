@@ -97,3 +97,56 @@ The creation interface SHALL distinguish plant saving from photo uploading and p
 #### Scenario: Connection is lost during photo upload
 - **WHEN** connectivity is lost after plant creation is confirmed and photo upload cannot be confirmed
 - **THEN** the interface reports the upload uncertainty, retains the saved-plant context and selected file in the open flow, and requires an explicit action before another upload attempt
+
+### Requirement: Simplified plant species fields
+The add/edit plant form SHALL offer an optional Scientific name input without Common name or Family inputs. Saving edits through this form SHALL preserve any previously saved common name and family. Creating a plant without identification SHALL NOT require either omitted field.
+
+#### Scenario: Create with simplified species input
+- **WHEN** a user opens Add Plant
+- **THEN** Scientific name is optional, Common name and Family inputs are absent, and the plant can be saved with its required details
+
+#### Scenario: Edit without losing saved species metadata
+- **WHEN** a user updates a plant through the simplified edit form
+- **THEN** the requested editable details are saved and the plant's existing common name and family are preserved
+
+### Requirement: Scientific name Wikipedia reference
+When a plant has a nonblank scientific name, plant detail SHALL display that name as a keyboard-accessible link to the corresponding English Wikipedia title, opening in a new tab. The link SHALL identify Wikipedia and the new-tab behavior accessibly. The destination SHALL be generated from the trimmed scientific name with whitespace converted to underscores and the title safely URL-encoded. Plants without a scientific name SHALL retain the existing species fallback without a Wikipedia link. No additional reference form input or automatic Wikipedia network lookup SHALL be required.
+
+#### Scenario: Open a species reference
+- **WHEN** a user opens a plant with scientific name Monstera deliciosa
+- **THEN** its scientific name links to the Monstera_deliciosa title on English Wikipedia in a new tab
+
+#### Scenario: Scientific name is absent
+- **WHEN** a plant has no nonblank scientific name
+- **THEN** the existing species fallback is shown without a Wikipedia link
+
+#### Scenario: Encode a scientific name
+- **WHEN** a scientific name includes repeated whitespace, Unicode, or URL-reserved characters
+- **THEN** the link remains on English Wikipedia and represents the complete normalized title without injecting a query or fragment
+
+### Requirement: Dedicated login page
+Signed-out OIDC visitors SHALL see a standalone branded `/login` page with a clear identity-provider sign-in action instead of collection navigation, empty collection content, or editing controls. Collection requests SHALL wait until authentication is confirmed. The page SHALL work at 320 CSS pixels and support keyboard operation and touch targets of at least 44 CSS pixels. Sign-in SHALL use the existing server authentication route.
+
+#### Scenario: Signed-out collection visit
+- **WHEN** a signed-out OIDC visitor opens a collection destination or plant detail
+- **THEN** the application replaces the URL with `/login`, displays the login page, and does not request protected collection data
+
+#### Scenario: Start provider sign-in
+- **WHEN** an online visitor activates the login action
+- **THEN** the browser navigates to the server login route and follows the provider redirect
+
+#### Scenario: Login is unnecessary
+- **WHEN** an authenticated visitor or an open-access deployment visitor opens `/login`
+- **THEN** the application replaces the URL with `/` and displays the collection
+
+#### Scenario: Session expires
+- **WHEN** the application learns that collection access has been denied
+- **THEN** it closes collection editing, clears visible collection content, and displays `/login`
+
+#### Scenario: Offline and unavailable bootstrap
+- **WHEN** the visitor is signed out offline or bootstrap cannot be loaded
+- **THEN** the page provides accessible connection or error feedback, offers retry for a failed bootstrap, and does not offer an active offline sign-in action
+
+#### Scenario: Authenticated offline collection
+- **WHEN** a previously authenticated visitor opens cached collection content offline
+- **THEN** the existing offline collection experience remains available

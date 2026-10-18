@@ -139,10 +139,17 @@ test('identification is one-shot and species changes only after confirmation', a
   await page.getByRole('radio').check();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('heading', { name: 'Species not set' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /on Wikipedia/ })).toHaveCount(0);
   await identifyInput.setInputFiles('/tmp/plant.jpg');
   await page.getByRole('radio').check();
   await page.getByRole('button', { name: 'Confirm species' }).click();
   await expect(page.getByRole('heading', { name: 'Monstera deliciosa' })).toBeVisible();
+  const reference = page.getByRole('link', { name: 'Monstera deliciosa on Wikipedia (opens in a new tab)' });
+  await expect(reference).toHaveAttribute('href', 'https://en.wikipedia.org/wiki/Monstera_deliciosa');
+  await expect(reference).toHaveAttribute('target', '_blank');
+  await expect(reference).toHaveAttribute('rel', 'noopener noreferrer');
+  await reference.focus();
+  await expect(reference).toBeFocused();
   await page.unroute(`**/api/plants/${plant.id}/photos/identify`);
 });
 

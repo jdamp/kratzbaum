@@ -21,6 +21,9 @@ async function openForm(page: Page) {
   await page.getByRole('button', { name: /add (your first )?plant/i }).first().click();
   await page.getByLabel('Plant name').fill(`Photo plant ${Date.now()}`);
   await page.getByLabel('Care notes').fill('Keep these details.');
+  await expect(page.getByLabel('Common name', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Family', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Scientific name', { exact: true })).toBeVisible();
   return page.getByRole('dialog');
 }
 const picker = (page: Page) => page.getByLabel('Plant photo · optional');
@@ -100,13 +103,22 @@ test('creates with a cover and one photo activity, without identification, and k
   expect(detail.plant.cover_photo_id).toBeTruthy();
   expect(detail.activities.filter((a: { type: string }) => a.type === 'photo')).toHaveLength(1);
   expect(identification).toBe(0);
+  // Seed metadata as it can exist on imported or identified plants.
+  const seeded = { ...detail.plant, common_name: 'Swiss cheese plant', family: 'Araceae' };
+  const seedResponse = await page.request.put(`/api/plants/${plant.id}`, { data: seeded });
+  expect(seedResponse.ok()).toBe(true);
+  await page.reload();
   await page.getByRole('button', { name: 'Edit plant and care schedule' }).click();
+  await expect(page.getByLabel('Common name', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Family', { exact: true })).toHaveCount(0);
   await expect(picker(page)).toHaveCount(0);
   await page.getByLabel('Care notes').fill('Edited notes.');
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   await expect(dialog).toHaveCount(0);
   const edited = await (await page.request.get(`/api/plants/${plant.id}`)).json();
   expect(edited.plant.notes).toBe('Edited notes.');
+  expect(edited.plant.common_name).toBe('Swiss cheese plant');
+  expect(edited.plant.family).toBe('Araceae');
 });
 
 test('removing the photo saves normally without an upload', async ({ page }) => {
@@ -118,7 +130,7 @@ test('removing the photo saves normally without an upload', async ({ page }) => 
   await add(page).click();
   await expect(dialog).toHaveCount(0);
   expect(uploads).toBe(0);
-  expect(created.size).toBe(1);
+  await expect.poll(() => created.size).toBe(1);
 });
 
 test('retains details and selection after create rejection and never starts the upload', async ({ page }) => {
@@ -191,7 +203,7 @@ for (const dismiss of ['Continue without photo', 'Close']) {
     await dialog.getByRole('button', { name: dismiss, exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
-    expect(created.size).toBe(1);
+    await expect.poll(() => created.size).toBe(1);
     await page.getByRole('button', { name: /add (your first )?plant/i }).first().click();
     await expect(page.getByRole('button', { name: 'Choose photo' })).toBeVisible();
     await expect(page.getByLabel('Plant name')).toHaveValue('');

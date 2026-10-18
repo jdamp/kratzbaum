@@ -4,6 +4,9 @@ import { createServer } from 'node:http';
 import type { Server } from 'node:http';
 
 interface AuthFixture {
+  authenticated: boolean;
+  bootstrapFailure: boolean;
+  collectionRequests: URL[];
   origin: string;
   providerOrigin: string;
   requests: URL[];
@@ -38,17 +41,19 @@ const test = base.extend<{ auth: AuthFixture }>({
       response.end('<h1>Test identity provider</h1>');
     });
     const providerOrigin = await listen(provider);
-    const auth: AuthFixture = { origin: '', providerOrigin, requests: [], worker: correctedWorker, correctedWorker, previousWorker };
+    const auth: AuthFixture = { authenticated: false, bootstrapFailure: false, collectionRequests: [], origin: '', providerOrigin, requests: [], worker: correctedWorker, correctedWorker, previousWorker };
     const server = createServer(async (request, response) => {
       try {
         const url = new URL(request.url!, auth.origin);
         response.setHeader('Cache-Control', 'no-store');
+        if (url.pathname.startsWith('/api/') && url.pathname !== '/api/bootstrap') auth.collectionRequests.push(url);
         if (url.pathname === '/sw.js') {
           response.setHeader('Content-Type', 'application/javascript');
           response.end(auth.worker);
         } else if (url.pathname === '/api/bootstrap') {
           response.setHeader('Content-Type', 'application/json');
-          response.end(JSON.stringify({ name: 'kratzbaum', auth_mode: 'oidc', authenticated: false, identity: '', display_name: '', csrf_token: '', login_url: '/auth/login', timezone: 'UTC', offline: false, plantnet_available: false }));
+          if (auth.bootstrapFailure) { response.writeHead(503); response.end(JSON.stringify({error:'Sign-in service unavailable'})); return; }
+          response.end(JSON.stringify({ name: 'kratzbaum', auth_mode: 'oidc', authenticated: auth.authenticated, identity: 'fixture', display_name: '', csrf_token: '', login_url: '/auth/login', timezone: 'UTC', offline: false, plantnet_available: false }));
         } else if (url.pathname.startsWith('/auth/')) {
           auth.requests.push(url);
           if (url.pathname === '/auth/login') {
@@ -119,6 +124,10 @@ test('controlled login and callback reach the server without caching authenticat
 
 test('controlled worker retains offline app navigation but never serves the shell for auth', async ({ page, context, auth }) => {
   await controlledPage(page, auth.origin);
+  auth.authenticated = true;
+  await page.goto(`${auth.origin}/plants`);
+  await expect(page.getByRole('heading', { name: 'Your plants' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('kratzbaum-context') || '{}').authenticated)).toBe(true);
   await context.setOffline(true);
   await page.goto(`${auth.origin}/plants`);
   await expect(page.getByRole('heading', { name: 'Your plants' })).toBeVisible();
@@ -169,7 +178,69 @@ for (const accept of [false, true]) {
       await expect.poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.ready).waiting))).toBe(true);
       expect(await page.evaluate(() => localStorage.getItem('test-controller-changed'))).toBeNull();
       await expect(page.getByRole('textbox', { name: 'Unsaved note' })).toHaveValue('Keep this draft');
-      await expect(page).toHaveURL(auth.origin + '/');
+      await expect(page).toHaveURL(auth.origin + '/login');
     }
   });
 }
+
+for (const path of ['/plants', '/plants/00000000-0000-0000-0000-000000000001', '/calendar', '/login']) {
+  test('signed-out destination shows only login: ' + path, async ({page, auth}) => {
+    await page.setViewportSize({width:320,height:740});
+    await page.goto(auth.origin + path);
+    await expect(page).toHaveURL(auth.origin + '/login');
+    await expect(page.getByRole('heading', {name:'Sign in to your collection'})).toBeVisible();
+    await expect(page.getByRole('navigation')).toHaveCount(0);
+    await expect(page.getByRole('button', {name:/Add plant/})).toHaveCount(0);
+    const link = page.getByRole('link', {name:'Continue with your identity provider'});
+    await expect(link).toHaveAttribute('href','/auth/login');
+    await page.keyboard.press('Tab');
+    await expect(link).toBeFocused();
+    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(auth.collectionRequests).toHaveLength(0);
+    expect(auth.requests).toHaveLength(0);
+  });
+}
+
+test('bootstrap error can be retried without exposing collection controls', async ({page, auth}) => {
+  auth.bootstrapFailure = true;
+  await page.goto(auth.origin + '/login');
+  await expect(page.getByRole('alert')).toContainText('Sign-in service unavailable');
+  await expect(page.getByRole('navigation')).toHaveCount(0);
+  await expect(page.getByRole('link', {name:'Continue with your identity provider'})).toHaveCount(0);
+  auth.bootstrapFailure = false;
+  await page.getByRole('button', {name:'Try again'}).click();
+  await expect(page.getByRole('link', {name:'Continue with your identity provider'})).toBeVisible();
+});
+
+test('signed-out offline login has no active sign-in action', async ({page, context, auth}) => {
+  await controlledPage(page, auth.origin);
+  await context.setOffline(true);
+  await expect(page.getByRole('button', {name:'Sign-in unavailable offline'})).toBeDisabled();
+  await page.goto(auth.origin + '/login');
+  await expect(page.getByRole('status')).toHaveText('Connect to the server to sign in.');
+  await expect(page.getByRole('link', {name:'Continue with your identity provider'})).toHaveCount(0);
+  await context.setOffline(false);
+  await expect(page.getByRole('link', {name:'Continue with your identity provider'})).toBeVisible();
+});
+
+test('authenticated login bypasses to collection and denied access closes editing', async ({page, auth}) => {
+  auth.authenticated = true;
+  await page.goto(auth.origin + '/login');
+  await expect(page).toHaveURL(auth.origin + '/');
+  await expect(page.getByRole('heading', {name:'Today',exact:true})).toBeVisible();
+  await page.getByRole('navigation', {name:'Main navigation'}).getByRole('button', {name:'Plants'}).click();
+  await page.getByRole('button', {name:'＋ Add plant',exact:true}).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('kratzbaum:access-denied')));
+  await expect(page).toHaveURL(auth.origin + '/login');
+  await expect(page.getByRole('heading', {name:'Sign in to your collection'})).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('navigation')).toHaveCount(0);
+});
+
+test('open access bypasses the dedicated login route', async ({page, baseURL}) => {
+  await page.goto(baseURL + '/login');
+  await expect(page).toHaveURL(baseURL + '/');
+  await expect(page.getByRole('heading', {name:'Today',exact:true})).toBeVisible();
+});
