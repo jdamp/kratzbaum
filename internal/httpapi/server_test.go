@@ -100,6 +100,25 @@ func TestAuthenticatedUsersShareCollectionAndActorAttribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	api := (&Server{Store: store, Config: cfg, Location: time.UTC, Auth: manager}).Handler()
+	for _, path := range []string{"/api/identifications", "/api/plants/" + plant.ID + "/photos/" + storage.NewID() + "/identify"} {
+		for _, authenticated := range []bool{false, true} {
+			req := httptest.NewRequest(http.MethodPost, path, nil)
+			req.Host = "plants.example"
+			req.Header.Set("Origin", "https://plants.example")
+			if authenticated {
+				req.AddCookie(&http.Cookie{Name: "kratzbaum_session", Value: "session-user-one"})
+			}
+			result := httptest.NewRecorder()
+			api.ServeHTTP(result, req)
+			want := 401
+			if authenticated {
+				want = 403
+			}
+			if result.Code != want {
+				t.Fatalf("identification auth/CSRF %s: got %d want %d", path, result.Code, want)
+			}
+		}
+	}
 	for index, session := range users {
 		token := []string{"session-user-one", "session-user-two"}[index]
 		r := httptest.NewRequest(http.MethodGet, "/api/bootstrap", nil)

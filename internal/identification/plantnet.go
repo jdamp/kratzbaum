@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"time"
 )
@@ -50,7 +52,10 @@ func (c Client) Identify(ctx context.Context, jpeg []byte) ([]Candidate, error) 
 	endpoint.RawQuery = query.Encode()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	part, err := writer.CreateFormFile("images", "plant.jpg")
+	part, err := writer.CreatePart(textproto.MIMEHeader{
+		"Content-Disposition": {`form-data; name="images"; filename="plant.jpg"`},
+		"Content-Type":        {"image/jpeg"},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +67,7 @@ func (c Client) Identify(ctx context.Context, jpeg []byte) ([]Candidate, error) 
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), &body)
 	if err != nil {
-		return nil, err
+		return nil, Failure{"plantnet_unavailable", "PlantNet service is unavailable"}
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	client := c.HTTP
@@ -71,7 +76,8 @@ func (c Client) Identify(ctx context.Context, jpeg []byte) ([]Candidate, error) 
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		var timeout net.Error
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
 			return nil, Failure{"plantnet_timeout", "PlantNet did not respond in time"}
 		}
 		return nil, Failure{"plantnet_unavailable", "PlantNet service is unavailable"}
@@ -89,6 +95,10 @@ func (c Client) Identify(ctx context.Context, jpeg []byte) ([]Candidate, error) 
 	var response upstream
 	decoder := json.NewDecoder(io.LimitReader(resp.Body, 2<<20))
 	if err := decoder.Decode(&response); err != nil {
+		var timeout net.Error
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
+			return nil, Failure{"plantnet_timeout", "PlantNet did not respond in time"}
+		}
 		return nil, Failure{"plantnet_invalid_response", "PlantNet returned an invalid response"}
 	}
 	results := make([]Candidate, 0, 5)

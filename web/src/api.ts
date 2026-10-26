@@ -119,7 +119,7 @@ async function purgeOtherIdentityCaches(keep:string){try{const names=await cache
 async function invalidateReadCache(){try{const names=await caches.keys();await Promise.all(names.filter(n=>n.startsWith('kratzbaum-data-')).map(n=>caches.delete(n)));navigator.serviceWorker?.controller?.postMessage({type:'INVALIDATE_DATA'})}catch{/* CacheStorage may be unavailable. */}}
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly code?: string) {
     super(message);
   }
 }
@@ -146,9 +146,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   if (!response.ok) {
     let message = `Something went wrong (${response.status}).`;
+    let code: string | undefined;
     try {
       const body = await response.json();
       message = body.error || message;
+      code = body.code;
     } catch {
       // The useful request status still reaches the screen.
     }
@@ -156,7 +158,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       await clearLocalCollection();
       window.dispatchEvent(new CustomEvent('kratzbaum:access-denied'));
     }
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, code);
   }
   if(!['GET','HEAD','OPTIONS'].includes(method)){await invalidateReadCache();if(method==='DELETE'&&path.includes('/photos/')){try{const names=await caches.keys();await Promise.all(names.filter(n=>n.startsWith('kratzbaum-media-')).map(n=>caches.delete(n)));navigator.serviceWorker?.controller?.postMessage({type:'INVALIDATE_MEDIA'})}catch{/* CacheStorage may be unavailable. */}}}
   if(response.status===204)return undefined as T;
@@ -175,13 +177,36 @@ export function send<T>(path: string, body?: unknown, method = 'POST', extraHead
   });
 }
 
-export async function uploadPhoto(plantID: string, file: File, identify = false) {
+export async function uploadPhoto(plantID: string, file: File) {
   const form = new FormData();
   form.append('image', file);
-  const suffix = identify ? '/identify' : '';
-  const headers:Record<string,string>={};if(identify)headers['Idempotency-Key']=crypto.randomUUID();
-  return request<unknown>(`/api/plants/${plantID || 'new'}/photos${suffix}`, { method: 'POST', body: form, headers });
+  return request<unknown>(`/api/plants/${plantID}/photos`, { method: 'POST', body: form });
 }
+
+export interface SpeciesCandidate {
+  scientific_name: string;
+  common_names: string[] | null;
+  score: number;
+}
+
+export interface IdentificationResult {
+  attempt_id: string;
+  status: 'succeeded' | 'no_match' | 'failed';
+  candidates: SpeciesCandidate[] | null;
+  error_code?: string;
+  error?: string;
+}
+
+function identifyFile(path: string, file: File, attemptKey: string) {
+  const body = new FormData();
+  body.append('image', file);
+  return request<IdentificationResult>(path, { method: 'POST', body, headers: { 'Idempotency-Key': attemptKey } });
+}
+
+export const identifyDraft = (file: File, attemptKey: string) => identifyFile('/api/identifications', file, attemptKey);
+export const identifyPlantFile = (plantID: string, file: File, attemptKey: string) => identifyFile(`/api/plants/${plantID}/photos/identify`, file, attemptKey);
+export const identifySavedPhoto = (plantID: string, photoID: string, attemptKey: string) =>
+  request<IdentificationResult>(`/api/plants/${plantID}/photos/${photoID}/identify`, { method: 'POST', headers: { 'Idempotency-Key': attemptKey } });
 
 export async function fetchMedia(path:string):Promise<string>{const headers=new Headers({'X-Kratzbaum-Cache-Context':cacheContext});let response:Response;try{response=await fetch(path,{headers,credentials:'same-origin'})}catch{throw new ApiError('This photo is not available offline yet.',0)}if(response.status===401||response.status===403){await clearLocalCollection();window.dispatchEvent(new CustomEvent('kratzbaum:access-denied'));throw new ApiError('Sign in is required to view this photo.',response.status)}if(!response.ok)throw new ApiError('Could not load this photo.',response.status);return URL.createObjectURL(await response.blob())}
 

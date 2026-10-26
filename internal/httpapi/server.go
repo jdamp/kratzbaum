@@ -17,7 +17,6 @@ import (
 	"github.com/kratzbaum/kratzbaum/internal/auth"
 	"github.com/kratzbaum/kratzbaum/internal/care"
 	"github.com/kratzbaum/kratzbaum/internal/config"
-	"github.com/kratzbaum/kratzbaum/internal/identification"
 	"github.com/kratzbaum/kratzbaum/internal/media"
 	"github.com/kratzbaum/kratzbaum/internal/storage"
 )
@@ -47,7 +46,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/plants/{id}/photos", s.photos)
 	mux.HandleFunc("DELETE /api/plants/{id}/photos/{photoID}", s.deletePhoto)
 	mux.HandleFunc("PUT /api/plants/{id}/cover", s.setCover)
+	mux.HandleFunc("POST /api/identifications", s.identify)
 	mux.HandleFunc("POST /api/plants/{id}/photos/identify", s.identify)
+	mux.HandleFunc("POST /api/plants/{id}/photos/{photoID}/identify", s.identifySavedPhoto)
 	mux.HandleFunc("GET /media/{id}/{filename}", s.serveMedia)
 	mux.HandleFunc("DELETE /api/activities/{id}", s.deleteActivity)
 	mux.HandleFunc("PUT /api/activities/{id}", s.updateActivity)
@@ -292,84 +293,6 @@ func (s *Server) photos(w http.ResponseWriter, r *http.Request) {
 	jsonOut(w, 201, photo)
 }
 
-func (s *Server) identify(w http.ResponseWriter, r *http.Request) {
-	plantID := r.PathValue("id")
-	if !idPattern.MatchString(plantID) {
-		fail(w, 400, "Invalid plant ID")
-		return
-	}
-	if _, err := s.Store.GetPlant(r.Context(), plantID); err != nil {
-		fail(w, 404, "Plant not found")
-		return
-	}
-	if s.Config.PlantNetKey == "" {
-		failCode(w, 503, "plantnet_not_configured", "PlantNet identification is not configured")
-		return
-	}
-	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
-	if len(key) < 8 || len(key) > 128 {
-		fail(w, 400, "A unique identification attempt key is required")
-		return
-	}
-	r.Body = http.MaxBytesReader(w, r.Body, s.Config.MaxUploadBytes+(1<<20))
-	if err := r.ParseMultipartForm(s.Config.MaxUploadBytes); err != nil {
-		fail(w, 400, "Upload exceeds the configured size limit")
-		return
-	}
-	file, header, err := r.FormFile("image")
-	if err != nil {
-		fail(w, 400, "Choose an image to identify")
-		return
-	}
-	defer file.Close()
-	normalized, err := media.Normalize(r.Context(), file, header.Filename, s.Config.MaxUploadBytes, s.Config.MaxImagePixels, s.Config.HEIFDecoder, filepath.Join(s.Config.MediaDir, ".tmp"))
-	if err != nil {
-		fail(w, 400, err.Error())
-		return
-	}
-	attempt, created, err := s.Store.BeginIdentification(r.Context(), key)
-	if err != nil {
-		fail(w, 500, "Could not save identification attempt")
-		return
-	}
-	if !created {
-		if attempt.Status == "pending" {
-			failCode(w, 409, "attempt_in_progress", "This identification attempt is already being processed")
-			return
-		}
-		result := map[string]any{"attempt_id": attempt.ID, "status": attempt.Status, "candidates": json.RawMessage(attempt.Candidates)}
-		if attempt.ErrorCode != "" {
-			result["error_code"] = attempt.ErrorCode
-			result["error"] = identificationMessage(attempt.ErrorCode)
-		}
-		jsonOut(w, 200, result)
-		return
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 26*time.Second)
-	defer cancel()
-	client := identification.Client{Key: s.Config.PlantNetKey, Endpoint: s.Config.PlantNetURL}
-	candidates, err := client.Identify(ctx, normalized.Original)
-	status, code := "succeeded", ""
-	if err != nil {
-		code = identification.ErrorCode(err)
-		if code == "plantnet_no_match" {
-			status = "no_match"
-		} else {
-			status = "failed"
-		}
-	}
-	data := identification.Encode(candidates)
-	if saveErr := s.Store.CompleteIdentification(r.Context(), key, status, code, data); saveErr != nil {
-		fail(w, 500, "Could not store identification result")
-		return
-	}
-	result := map[string]any{"attempt_id": attempt.ID, "status": status, "candidates": candidates}
-	if err != nil {
-		result["error_code"] = code
-		result["error"] = identification.ErrorMessage(err)
-	}
-	jsonOut(w, 200, result)
-}
 func failCode(w http.ResponseWriter, status int, code, message string) {
 	jsonOut(w, status, map[string]string{"error": message, "code": code})
 }

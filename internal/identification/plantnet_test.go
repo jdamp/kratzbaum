@@ -42,6 +42,21 @@ func TestQuotaErrorIsDistinct(t *testing.T) {
 	}
 }
 
+func TestHTTPClientTimeoutIsClassifiedAndNotRetried(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		time.Sleep(80 * time.Millisecond)
+		_, _ = w.Write([]byte(`{"results":[]}`))
+	}))
+	defer server.Close()
+	client := Client{Key: "private-test-key", Endpoint: server.URL, HTTP: &http.Client{Timeout: 20 * time.Millisecond}}
+	_, err := client.Identify(context.Background(), []byte{0xff, 0xd8, 0xff})
+	if ErrorCode(err) != "plantnet_timeout" || calls.Load() != 1 {
+		t.Fatalf("timeout code=%s calls=%d", ErrorCode(err), calls.Load())
+	}
+}
+
 func TestMissingKeyAndNoMatchAreDistinct(t *testing.T) {
 	if _, err := (Client{Endpoint: "http://example.invalid"}).Identify(context.Background(), []byte{0xff, 0xd8, 0xff}); ErrorCode(err) != "plantnet_not_configured" {
 		t.Fatalf("missing configuration code=%q error=%v", ErrorCode(err), err)

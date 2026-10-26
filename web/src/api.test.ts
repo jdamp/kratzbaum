@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { finishPendingLogout, get, send, setRequestContext } from './api';
+import { finishPendingLogout, get, identifyDraft, identifyPlantFile, identifySavedPhoto, send, setRequestContext } from './api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -68,6 +68,42 @@ describe('collection cache contexts', () => {
     vi.stubGlobal('navigator', { onLine: true });
     expect(await finishPendingLogout()).toBe(true);
     expect(storage.getItem('kratzbaum-local-logout')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('explicit identification requests', () => {
+  it('uses source-specific routes and caller-owned keys with CSRF without retrying', async () => {
+    vi.stubGlobal('navigator', { onLine: true });
+    const fetchMock = vi.fn().mockImplementation(async () => new Response('{"status":"succeeded","candidates":[]}'));
+    vi.stubGlobal('fetch', fetchMock);
+    setRequestContext('oidc-test', 'csrf-test');
+    const file = new File(['image'], 'plant.jpg', { type: 'image/jpeg' });
+    await identifyDraft(file, 'draft-attempt');
+    await identifyPlantFile('plant-id', file, 'file-attempt');
+    await identifySavedPhoto('plant-id', 'photo-id', 'saved-attempt');
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual(['/api/identifications', '/api/plants/plant-id/photos/identify', '/api/plants/plant-id/photos/photo-id/identify']);
+    for (const [i, key] of ['draft-attempt', 'file-attempt', 'saved-attempt'].entries()) {
+      const options = fetchMock.mock.calls[i][1];
+      expect(options.method).toBe('POST');
+      expect(options.headers.get('Idempotency-Key')).toBe(key);
+      expect(options.headers.get('X-CSRF-Token')).toBe('csrf-test');
+      if (i < 2) expect(options.body.get('image').name).toBe('plant.jpg');
+      else expect(options.body).toBeUndefined();
+    }
+    fetchMock.mockRejectedValue(new Error('lost connection'));
+    await expect(identifyDraft(file, 'uncertain-attempt')).rejects.toMatchObject({ status: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('rejects offline identification and preserves structured error codes', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"error":"Already processing","code":"attempt_in_progress"}', { status: 409 }));
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('navigator', { onLine: false });
+    await expect(identifySavedPhoto('plant', 'photo', 'attempt-key')).rejects.toMatchObject({ status: 0 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.stubGlobal('navigator', { onLine: true });
+    await expect(identifySavedPhoto('plant', 'photo', 'attempt-key')).rejects.toMatchObject({ status: 409, code: 'attempt_in_progress' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

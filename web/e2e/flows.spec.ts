@@ -122,25 +122,28 @@ test('shows reachable navigation, settings, and touch targets at phone and deskt
 });
 
 test('identification is one-shot and species changes only after confirmation', async ({ page }) => {
+  await page.route('**/api/bootstrap', async route => { const response = await route.fetch(); await route.fulfill({ response, json: { ...await response.json(), plantnet_available: true } }); });
   await page.goto('/');
   const name = `PW identify ${Date.now()}`;
   const plant = await addPlant(page, name);
   await page.getByRole('button', { name: new RegExp(name) }).click();
-  const identifyInput = page.locator('.identify-control input[type=file]');
+  const identifyInput = page.getByLabel('Photo for species identification');
   expect(await identifyInput.getAttribute('accept')).toContain('.heic');
   await page.route(`**/api/plants/${plant.id}/photos/identify`, route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ candidates: [{ scientific_name: 'Monstera deliciosa', common_names: ['Swiss cheese plant'], score: 0.94 }] }),
+    body: JSON.stringify({ status: 'succeeded', candidates: [{ scientific_name: 'Monstera deliciosa', common_names: ['Swiss cheese plant'], score: 0.94 }] }),
   }));
   await identifyInput.setInputFiles('/tmp/plant.jpg');
+  await page.getByRole('button', { name: 'Identify species', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Review suggestions' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Confirm species' })).toBeDisabled();
   await page.getByRole('radio').check();
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Cancel identification', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Species not set' })).toBeVisible();
   await expect(page.getByRole('link', { name: /on Wikipedia/ })).toHaveCount(0);
   await identifyInput.setInputFiles('/tmp/plant.jpg');
+  await page.getByRole('button', { name: 'Identify species', exact: true }).click();
   await page.getByRole('radio').check();
   await page.getByRole('button', { name: 'Confirm species' }).click();
   await expect(page.getByRole('heading', { name: 'Monstera deliciosa' })).toBeVisible();

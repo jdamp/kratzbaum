@@ -48,4 +48,14 @@ Stop the app for a consistent SQLite backup, then copy the entire `/data` direct
 
 OIDC deployments need an HTTPS callback URL matching `OIDC_REDIRECT_URL`; all accepted users share the same collection. Set `OIDC_ISSUER` to the exact issuer advertised by the provider's discovery document, including any trailing slash. For example, an Authentik per-provider issuer can be `https://auth.example.com/application/o/kratzbaum/`. Discovery and identity-token issuers must match this identifier exactly.
 
-PlantNet is optional and should only be invoked through an explicit identification action. Standard browser service workers require HTTPS (localhost is allowed for development).
+## Species identification
+
+Set `PLANTNET_API_KEY` on the server to enable optional Pl@ntNet identification. `PLANTNET_API_URL` defaults to `https://my-api.plantnet.org/v2/identify/all`. Keep the key outside source control; the browser receives only an availability flag. Without a key, plants can still be saved with a manually entered scientific name or no species information.
+
+In Add Plant, choose a photo and click **Identify species** before saving. Review the ranked suggestions and confidence scores, then **Confirm species** to fill the draft. **Add plant** saves it separately. Identification sends the selected image to the server and Pl@ntNet only after that explicit action; selecting a photo alone sends nothing. If the plant is later saved with that photo, the local file is uploaded again for its gallery and cover. Cancelling creation leaves no plant or catalogue photo.
+
+For existing plants, choose an identification file or click **Identify this photo** on a saved gallery photo, then **Identify species**. Confirming a suggestion saves its species information. Identification alone does not attach a new photo or add a photo activity. Photo uploads and identification remain separate, including when retrying a failed catalogue photo upload.
+
+Identification is unavailable offline. Failures retain recoverable input and require an explicit retry; requests are never queued or automatically replayed. A failed species save can be retried with **Confirm species** without spending another identification request.
+
+Standard browser service workers require HTTPS (localhost is allowed for development).
