@@ -6,7 +6,7 @@ import (
 )
 
 type PlantSchedule struct {
-	CareStart        time.Time
+	CareStart        *time.Time
 	WaterDays        int
 	SummerFeedDays   *int
 	WinterFeedDays   *int
@@ -24,35 +24,48 @@ type Due struct {
 	Overdue      bool      `json:"overdue"`
 }
 
-// Calculate returns at most one outstanding task per enabled schedule. The
-// active season's interval is evaluated from the current local date.
+type NotStarted struct {
+	Type         string
+	IntervalDays int
+}
+
+type Evaluation struct {
+	Due        []Due
+	NotStarted []NotStarted
+}
+
+// Calculate returns only dated tasks for calendar consumers.
 func Calculate(p PlantSchedule, now time.Time, loc *time.Location) []Due {
+	return Evaluate(p, now, loc).Due
+}
+
+// Evaluate derives each schedule independently from surviving activity history.
+func Evaluate(p PlantSchedule, now time.Time, loc *time.Location) Evaluation {
 	now = now.In(loc)
-	out := []Due{}
-	waterBase := p.CareStart
-	if p.LastWater != nil {
-		waterBase = *p.LastWater
+	out := Evaluation{Due: []Due{}, NotStarted: []NotStarted{}}
+	add := func(kind string, days int, last *time.Time, season string) {
+		if days <= 0 {
+			return
+		}
+		base := last
+		if base == nil {
+			base = p.CareStart
+		}
+		if base == nil {
+			out.NotStarted = append(out.NotStarted, NotStarted{Type: kind, IntervalDays: days})
+			return
+		}
+		due := base.In(loc).AddDate(0, 0, days)
+		out.Due = append(out.Due, Due{Type: kind, DueAt: due, IntervalDays: days, Season: season, Overdue: dateOnly(due, loc).Before(dateOnly(now, loc))})
 	}
-	if p.WaterDays > 0 {
-		due := waterBase.In(loc).AddDate(0, 0, p.WaterDays)
-		out = append(out, Due{Type: "watering", DueAt: due, IntervalDays: p.WaterDays, Overdue: dateOnly(due, loc).Before(dateOnly(now, loc))})
-	}
+	add("watering", p.WaterDays, p.LastWater, "")
 	season := Season(now)
-	interval := p.WinterFeedDays
-	paused := p.WinterFeedPaused
+	interval, paused := p.WinterFeedDays, p.WinterFeedPaused
 	if season == "summer" {
-		interval = p.SummerFeedDays
-		paused = p.SummerFeedPaused
+		interval, paused = p.SummerFeedDays, p.SummerFeedPaused
 	}
-	if !paused {
-		feedBase := p.CareStart
-		if p.LastFeed != nil {
-			feedBase = *p.LastFeed
-		}
-		if interval != nil && *interval > 0 {
-			due := feedBase.In(loc).AddDate(0, 0, *interval)
-			out = append(out, Due{Type: "fertilizing", DueAt: due, IntervalDays: *interval, Season: season, Overdue: dateOnly(due, loc).Before(dateOnly(now, loc))})
-		}
+	if !paused && interval != nil {
+		add("fertilizing", *interval, p.LastFeed, season)
 	}
 	return out
 }

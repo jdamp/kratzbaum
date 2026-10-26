@@ -100,7 +100,7 @@ func TestAuthenticatedUsersShareCollectionAndActorAttribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	api := (&Server{Store: store, Config: cfg, Location: time.UTC, Auth: manager}).Handler()
-	for _, path := range []string{"/api/identifications", "/api/plants/" + plant.ID + "/photos/" + storage.NewID() + "/identify"} {
+	for _, path := range []string{"/api/rooms", "/api/identifications", "/api/plants/" + plant.ID + "/photos/" + storage.NewID() + "/identify"} {
 		for _, authenticated := range []bool{false, true} {
 			req := httptest.NewRequest(http.MethodPost, path, nil)
 			req.Host = "plants.example"
@@ -188,6 +188,7 @@ func runPlantAndCareAPI(t *testing.T, cfg config.Config) {
 		})}).Handler()
 	}
 	api := newAPI(store)
+	runCareRoomsAPI(t, api, store)
 	payload := `{"name":"Kitchen fern","scientific_name":"Nephrolepis","care_start_date":"2026-09-01","watering_interval_days":9,"summer_fertilizing_interval_days":14,"winter_fertilizing_interval_days":40}`
 	req := httptest.NewRequest(http.MethodPost, "/api/plants", strings.NewReader(payload))
 	res := httptest.NewRecorder()

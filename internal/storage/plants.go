@@ -11,6 +11,7 @@ import (
 )
 
 type Plant struct {
+	RoomID                        *string   `json:"room_id"`
 	ID                            string    `json:"id"`
 	Name                          string    `json:"name"`
 	ScientificName                string    `json:"scientific_name"`
@@ -124,7 +125,7 @@ func (s *Store) MediaFile(photo Photo, thumbnail bool) string {
 }
 
 func (s *Store) ListPlants(ctx context.Context, search string) ([]Plant, error) {
-	rows, err := s.db.QueryContext(ctx, s.query(`SELECT id,name,scientific_name,common_name,family,notes,care_start_date,watering_interval_days,summer_fertilizing_interval_days,winter_fertilizing_interval_days,summer_fertilizing_paused,winter_fertilizing_paused,cover_photo_id,created_at,updated_at FROM plants WHERE (? = '' OR lower(name || ' ' || scientific_name || ' ' || common_name) LIKE ?) ORDER BY lower(name)`), search, "%"+strings.ToLower(search)+"%")
+	rows, err := s.db.QueryContext(ctx, s.query(`SELECT id,name,scientific_name,common_name,family,notes,care_start_date,watering_interval_days,summer_fertilizing_interval_days,winter_fertilizing_interval_days,summer_fertilizing_paused,winter_fertilizing_paused,cover_photo_id,room_id,created_at,updated_at FROM plants WHERE (? = '' OR lower(name || ' ' || scientific_name || ' ' || common_name) LIKE ?) ORDER BY lower(name)`), search, "%"+strings.ToLower(search)+"%")
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +141,7 @@ func (s *Store) ListPlants(ctx context.Context, search string) ([]Plant, error) 
 	return out, rows.Err()
 }
 func (s *Store) GetPlant(ctx context.Context, id string) (Plant, error) {
-	return scanPlant(s.db.QueryRowContext(ctx, s.query(`SELECT id,name,scientific_name,common_name,family,notes,care_start_date,watering_interval_days,summer_fertilizing_interval_days,winter_fertilizing_interval_days,summer_fertilizing_paused,winter_fertilizing_paused,cover_photo_id,created_at,updated_at FROM plants WHERE id=?`), id))
+	return scanPlant(s.db.QueryRowContext(ctx, s.query(`SELECT id,name,scientific_name,common_name,family,notes,care_start_date,watering_interval_days,summer_fertilizing_interval_days,winter_fertilizing_interval_days,summer_fertilizing_paused,winter_fertilizing_paused,cover_photo_id,room_id,created_at,updated_at FROM plants WHERE id=?`), id))
 }
 
 type scanner interface{ Scan(...any) error }
@@ -172,7 +173,7 @@ func (d *dbTime) Scan(v any) error {
 
 func scanPlant(row scanner) (p Plant, err error) {
 	var created, updated dbTime
-	err = row.Scan(&p.ID, &p.Name, &p.ScientificName, &p.CommonName, &p.Family, &p.Notes, &p.CareStartDate, &p.WateringIntervalDays, &p.SummerFertilizingIntervalDays, &p.WinterFertilizingIntervalDays, &p.SummerFertilizingPaused, &p.WinterFertilizingPaused, &p.CoverPhotoID, &created, &updated)
+	err = row.Scan(&p.ID, &p.Name, &p.ScientificName, &p.CommonName, &p.Family, &p.Notes, &p.CareStartDate, &p.WateringIntervalDays, &p.SummerFertilizingIntervalDays, &p.WinterFertilizingIntervalDays, &p.SummerFertilizingPaused, &p.WinterFertilizingPaused, &p.CoverPhotoID, &p.RoomID, &created, &updated)
 	p.CreatedAt, p.UpdatedAt = created.Time, updated.Time
 	if p.CoverPhotoID != "" {
 		p.PhotoURL = "/media/" + p.CoverPhotoID + "/thumb.jpg"
@@ -187,7 +188,10 @@ func (s *Store) SavePlant(ctx context.Context, p Plant) error {
 		p.CreatedAt = now
 	}
 	p.UpdatedAt = now
-	_, err := s.db.ExecContext(ctx, s.query(`INSERT INTO plants (id,name,scientific_name,common_name,family,notes,care_start_date,watering_interval_days,summer_fertilizing_interval_days,winter_fertilizing_interval_days,summer_fertilizing_paused,winter_fertilizing_paused,cover_photo_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,scientific_name=excluded.scientific_name,common_name=excluded.common_name,family=excluded.family,notes=excluded.notes,care_start_date=excluded.care_start_date,watering_interval_days=excluded.watering_interval_days,summer_fertilizing_interval_days=excluded.summer_fertilizing_interval_days,winter_fertilizing_interval_days=excluded.winter_fertilizing_interval_days,summer_fertilizing_paused=excluded.summer_fertilizing_paused,winter_fertilizing_paused=excluded.winter_fertilizing_paused,updated_at=excluded.updated_at`), p.ID, p.Name, p.ScientificName, p.CommonName, p.Family, p.Notes, p.CareStartDate, p.WateringIntervalDays, p.SummerFertilizingIntervalDays, p.WinterFertilizingIntervalDays, p.SummerFertilizingPaused, p.WinterFertilizingPaused, p.CoverPhotoID, now, now)
+	_, err := s.db.ExecContext(ctx, s.query(`INSERT INTO plants (id,name,scientific_name,common_name,family,notes,care_start_date,watering_interval_days,summer_fertilizing_interval_days,winter_fertilizing_interval_days,summer_fertilizing_paused,winter_fertilizing_paused,cover_photo_id,room_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,scientific_name=excluded.scientific_name,common_name=excluded.common_name,family=excluded.family,notes=excluded.notes,care_start_date=excluded.care_start_date,watering_interval_days=excluded.watering_interval_days,summer_fertilizing_interval_days=excluded.summer_fertilizing_interval_days,winter_fertilizing_interval_days=excluded.winter_fertilizing_interval_days,summer_fertilizing_paused=excluded.summer_fertilizing_paused,winter_fertilizing_paused=excluded.winter_fertilizing_paused,room_id=excluded.room_id,updated_at=excluded.updated_at`), p.ID, p.Name, p.ScientificName, p.CommonName, p.Family, p.Notes, p.CareStartDate, p.WateringIntervalDays, p.SummerFertilizingIntervalDays, p.WinterFertilizingIntervalDays, p.SummerFertilizingPaused, p.WinterFertilizingPaused, p.CoverPhotoID, p.RoomID, now, now)
+	if isConstraint(err, "23503", 787) {
+		return ErrRoomReference
+	}
 	return err
 }
 func (s *Store) DeletePlant(ctx context.Context, id string) error {

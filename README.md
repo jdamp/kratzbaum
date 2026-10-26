@@ -16,7 +16,15 @@ For Chromium end-to-end checks, keep kratzbaum running and in another terminal r
 
 To run the shared repository and HTTP API integration cases against PostgreSQL, start the isolated test service with `docker compose -f deploy/compose.postgres-test.yaml up -d --wait`, set `KRATZBAUM_TEST_POSTGRES_URL=postgres://kratzbaum_test:kratzbaum_test@127.0.0.1:55432/kratzbaum_test?sslmode=disable`, then run `go test ./...`. PostgreSQL tests refuse database names that do not end in `_test`, create random temporary schemas, and drop only those schemas afterward. The backup/restore case also requires matching PostgreSQL 18 `pg_dump` and `pg_restore` tools; it recreates only its own temporary schema and copies the media directory. The same package tests also run on SQLite. Stop the test service with `docker compose -f deploy/compose.postgres-test.yaml down`.
 
-The first run creates `./data/kratzbaum.db` and `./data/media`. Set `APP_TIMEZONE` to an IANA timezone. Northern hemisphere fertilizer seasons are April–September and October–March. Intervals are per plant; due dates anchor to care start until a completion is recorded, then to the latest completion.
+The first run creates `./data/kratzbaum.db` and `./data/media`. Set `APP_TIMEZONE` to an IANA timezone. Northern hemisphere fertilizer seasons are April–September and October–March. Intervals are per plant. Care started is optional and blank by default: each watering or fertilizing schedule starts independently from the first actual care record, unless you supply a fallback date. Today lists enabled schedules without an anchor under **Not started yet**; use **Watered** or **Fertilized** to choose the actual completion date. Due and upcoming reminders show the selected cover photo when available.
+
+## Rooms and care
+
+Create, rename, or delete rooms in **Settings → Manage rooms**, or open **Manage rooms** from the plant form without losing the draft. Assign each plant to one optional room using **Room · optional**. Plants and Today share an **All rooms / room / Unassigned** filter, so you can work through one room with individual care actions. Catalogue search combines with its room filter; it does not hide care actions on Today. Deleting a room keeps its plants, photos, and history and makes the plants unassigned.
+
+Successfully cached plants, rooms, reminders, and photos remain readable offline, including room filtering. Offline views show their saved refresh time; care recording and room changes require a connection. Room data that was not cached is shown as unavailable.
+
+Upgrades run automatically on startup for SQLite and PostgreSQL. Existing plants retain their saved care start dates and history and begin without a room assignment. To stop using an old automatically suggested start date, clear **Care started** in Edit plant; recorded care remains intact. Back up the database and media before upgrading. Rolling back to the old application requires the matching pre-upgrade database backup because the old calculator does not support absent care anchors.
 
 ## Container deployment
 

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, send, uploadPhoto } from './api';
-import type { Plant, PlantInput } from './api';
+import type { Plant, PlantInput, Room } from './api';
+import { RoomManager } from './Rooms';
 import { Identification, photoTypes } from './Identification';
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
 
 function PhotoPicker({ file, disabled, onChange }: { file: File | null; disabled: boolean; onChange: (file: File | null) => void }) {
   const input = useRef<HTMLInputElement>(null);
@@ -35,7 +35,11 @@ function PhotoPicker({ file, disabled, onChange }: { file: File | null; disabled
   </div>;
 }
 
-export function PlantDialog({ editing, available, offline, onClose, onSaved }: { editing: Plant | null; available: boolean; offline: boolean; onClose: () => void; onSaved: () => void }) {
+export function PlantDialog({ editing, available, offline, rooms, roomsUnavailable, onRoomsChanged, onClose, onSaved }: { editing: Plant | null; available: boolean; offline: boolean; rooms: Room[]; roomsUnavailable: boolean; onRoomsChanged: () => Promise<void>; onClose: () => void; onSaved: () => void }) {
+  const [managingRooms, setManagingRooms] = useState(false);
+  const wasManaging = useRef(false);
+  const [roomID, setRoomID] = useState(editing?.room_id ?? '');
+  useEffect(() => { if (!roomsUnavailable && roomID && !rooms.some(room => room.id === roomID)) setRoomID(''); }, [rooms, roomsUnavailable, roomID]);
   const [scientificName, setScientificName] = useState(editing?.scientific_name ?? '');
   const [commonName, setCommonName] = useState('');
   const [identifying, setIdentifying] = useState(false);
@@ -48,6 +52,11 @@ export function PlantDialog({ editing, available, offline, onClose, onSaved }: {
   const inFlight = useRef(false);
   const confirmedPlant = useRef<Plant | null>(null);
   const dialog = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (managingRooms) dialog.current?.querySelector<HTMLInputElement>('.room-manager input')?.focus();
+    else if (wasManaging.current) dialog.current?.querySelector<HTMLButtonElement>('.manage-rooms-button')?.focus();
+    wasManaging.current = managingRooms;
+  }, [managingRooms]);
   useEffect(() => {
     if (phase === 'photo-error') {
       dialog.current?.scrollTo({ top: 0 });
@@ -62,12 +71,12 @@ export function PlantDialog({ editing, available, offline, onClose, onSaved }: {
     return () => { if (launcher?.isConnected) launcher.focus(); };
   }, []);
   const finish = () => { onClose(); onSaved(); };
-  const close = () => { if (inFlight.current) return; if (confirmedPlant.current) finish(); else onClose(); };
+  const close = () => { if (inFlight.current) return; if (managingRooms) { setManagingRooms(false); return; } if (confirmedPlant.current) finish(); else onClose(); };
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (inFlight.current || identificationPending.current) return;
+    if (inFlight.current || identificationPending.current || offline) return;
     const fd = new FormData(event.currentTarget), v = (key: string) => String(fd.get(key) || ''), n = (key: string) => v(key) ? Number(v(key)) : null;
-    const input: PlantInput = { name: v('name').trim(), scientific_name: v('scientific_name'), common_name: editing?.common_name ?? commonName, family: editing?.family ?? '', notes: v('notes'), care_start_date: v('care_start_date'), watering_interval_days: Number(v('watering_interval_days')), summer_fertilizing_interval_days: n('summer'), winter_fertilizing_interval_days: n('winter'), summer_fertilizing_paused: fd.has('summer_paused'), winter_fertilizing_paused: fd.has('winter_paused') };
+    const input: PlantInput = { name: v('name').trim(), scientific_name: v('scientific_name'), common_name: editing?.common_name ?? commonName, family: editing?.family ?? '', notes: v('notes'), care_start_date: v('care_start_date'), ...(roomsUnavailable ? {} : { room_id: roomID || null }), watering_interval_days: Number(v('watering_interval_days')), summer_fertilizing_interval_days: n('summer'), winter_fertilizing_interval_days: n('winter'), summer_fertilizing_paused: fd.has('summer_paused'), winter_fertilizing_paused: fd.has('winter_paused') };
     inFlight.current = true;
     setError('');
     if (!confirmedPlant.current) {
@@ -101,7 +110,7 @@ export function PlantDialog({ editing, available, offline, onClose, onSaved }: {
     <section ref={dialog} tabIndex={-1} className="modal" role="dialog" aria-modal="true" aria-labelledby="form-title" aria-busy={busy} onKeyDown={e => {
       if (e.key === 'Escape') { e.preventDefault(); close(); }
       if (e.key === 'Tab') {
-        const controls = Array.from(dialog.current!.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled):not([hidden]), textarea:not(:disabled)')).filter(el => el.getClientRects().length);
+        const controls = Array.from(dialog.current!.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled):not([hidden]), textarea:not(:disabled), select:not(:disabled)')).filter(el => el.getClientRects().length);
         const first = controls[0], last = controls[controls.length - 1];
         if (!first) { e.preventDefault(); return; }
         if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last.focus(); }
@@ -111,15 +120,16 @@ export function PlantDialog({ editing, available, offline, onClose, onSaved }: {
       <div className="modal-heading"><div><p className="eyebrow">{editing ? 'COLLECTION DETAILS' : 'NEW ADDITION'}</p><h2 id="form-title">{editing ? 'Edit plant' : phase === 'photo-error' ? 'Finish adding your plant' : 'Add a plant'}</h2></div><button className="icon-button" aria-label="Close" disabled={saving} onClick={close}>×</button></div>
       {error && <div className="alert creation-error" role="alert" tabIndex={-1}>{savedPlant && <b>Plant saved. Photo needs attention.</b>}<span>{error}</span>{savedPlant && <span>Your plant details are safe.</span>}</div>}
       {saving && <p className="creation-progress" role="status">{phase === 'saving' ? 'Saving plant…' : 'Plant saved. Uploading photo…'}</p>}
-      <form onSubmit={submit}>
-        {savedPlant && <div className="saved-plant-summary"><h3>{savedPlant.name}</h3><p className="muted">{[savedPlant.scientific_name, savedPlant.common_name].filter(Boolean).join(' · ')}</p><p className="muted">Care started {savedPlant.care_start_date} · Water every {savedPlant.watering_interval_days} days</p></div>}
+      {managingRooms && <div><button type="button" className="text-button" onClick={() => setManagingRooms(false)}>← Back to plant</button><RoomManager rooms={rooms} offline={offline} unavailable={roomsUnavailable} onChanged={onRoomsChanged}/></div>}
+      <form onSubmit={submit} hidden={managingRooms}>
+        {savedPlant && <div className="saved-plant-summary"><h3>{savedPlant.name}</h3><p className="muted">{[savedPlant.scientific_name, savedPlant.common_name].filter(Boolean).join(' · ')}</p><p className="muted">{savedPlant.care_start_date ? `Care started ${savedPlant.care_start_date}` : 'Care starts with your first recorded activity'} · Water every {savedPlant.watering_interval_days} days</p></div>}
         {!editing && <PhotoPicker file={file} disabled={busy} onChange={setFile}/>}
         {!editing && !savedPlant && <Identification source={file} available={available} offline={offline} disabled={saving} onBusyChange={identificationBusy} onConfirm={candidate => { setScientificName(candidate.scientific_name); setCommonName(candidate.common_names?.[0] ?? ''); }}/>}
-        <fieldset className="plant-fields" disabled={busy || !!savedPlant} hidden={!!savedPlant}>
-          <label>Plant name<input name="name" required maxLength={120} autoFocus defaultValue={editing?.name??''} placeholder="Monstera by the window"/></label><label>Scientific name<input name="scientific_name" value={scientificName} onChange={e => { setScientificName(e.target.value); setCommonName(''); }} placeholder="Monstera deliciosa"/></label><label>Care started<input name="care_start_date" type="date" required defaultValue={editing?.care_start_date??todayISO()}/></label><label>Water every <span className="inline-input"><input name="watering_interval_days" type="number" min="1" max="365" defaultValue={editing?.watering_interval_days??7} required/> days</span></label><div className="two-fields"><label>Summer fertilizer interval (days)<input name="summer" type="number" min="1" max="365" defaultValue={editing?.summer_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="summer_paused" defaultChecked={editing?.summer_fertilizing_paused??false}/> Pause in summer</span></label><label>Winter fertilizer interval (days)<input name="winter" type="number" min="1" max="365" defaultValue={editing?.winter_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="winter_paused" defaultChecked={editing?.winter_fertilizing_paused??false}/> Pause in winter</span></label></div><label>Care notes<textarea name="notes" rows={3} defaultValue={editing?.notes??''} placeholder="Light, humidity, advice to remember…"/></label>
+        <fieldset className="plant-fields" disabled={busy || !!savedPlant || offline} hidden={!!savedPlant}>
+          <label>Plant name<input name="name" required maxLength={120} autoFocus defaultValue={editing?.name??''} placeholder="Monstera by the window"/></label><label>Scientific name<input name="scientific_name" value={scientificName} onChange={e => { setScientificName(e.target.value); setCommonName(''); }} placeholder="Monstera deliciosa"/></label><label>Room · optional<select name="room_id" value={roomID} onChange={e => setRoomID(e.target.value)} disabled={roomsUnavailable || offline}><option value="">Unassigned</option>{rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}{roomID && !rooms.some(room => room.id === roomID) && <option value={roomID}>Room information unavailable</option>}</select></label>{roomsUnavailable && <p className="muted">Room information is unavailable. Existing assignment will be kept.</p>}<button type="button" className="text-button manage-rooms-button" onClick={() => setManagingRooms(true)}>Manage rooms</button><label>Care started<input name="care_start_date" type="date" defaultValue={editing?.care_start_date??''} aria-describedby="care-start-help"/></label><p id="care-start-help" className="muted">Optional. Leave blank to start watering and fertilizing separately when you record actual care. A supplied date is used until the first activity of each type.</p><label>Water every <span className="inline-input"><input name="watering_interval_days" type="number" min="1" max="365" defaultValue={editing?.watering_interval_days??7} required/> days</span></label><div className="two-fields"><label>Summer fertilizer interval (days)<input name="summer" type="number" min="1" max="365" defaultValue={editing?.summer_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="summer_paused" defaultChecked={editing?.summer_fertilizing_paused??false}/> Pause in summer</span></label><label>Winter fertilizer interval (days)<input name="winter" type="number" min="1" max="365" defaultValue={editing?.winter_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="winter_paused" defaultChecked={editing?.winter_fertilizing_paused??false}/> Pause in winter</span></label></div><label>Care notes<textarea name="notes" rows={3} defaultValue={editing?.notes??''} placeholder="Light, humidity, advice to remember…"/></label>
         </fieldset>
         <div className={'modal-actions' + (savedPlant ? ' creation-recovery-actions' : '')}>
-          {savedPlant ? <><button className="primary" disabled={busy || !file}>{busy ? 'Uploading photo…' : 'Retry photo'}</button><button type="button" className="secondary" disabled={busy} onClick={close}>Continue without photo</button></> : <><button type="button" className="secondary" disabled={saving} onClick={close}>Cancel</button><button className="primary" disabled={busy}>{saving ? 'Saving plant…' : editing ? 'Save changes' : 'Add plant'}</button></>}
+          {savedPlant ? <><button className="primary" disabled={busy || !file}>{busy ? 'Uploading photo…' : 'Retry photo'}</button><button type="button" className="secondary" disabled={busy} onClick={close}>Continue without photo</button></> : <><button type="button" className="secondary" disabled={saving} onClick={close}>Cancel</button><button className="primary" disabled={busy || offline}>{saving ? 'Saving plant…' : editing ? 'Save changes' : 'Add plant'}</button></>}
         </div>
         {savedPlant && !busy && <p className="muted">Retry uses this saved plant.</p>}
       </form>

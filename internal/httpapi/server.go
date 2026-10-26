@@ -35,6 +35,10 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { jsonOut(w, 200, map[string]any{"status": "ok"}) })
 	mux.HandleFunc("GET /api/bootstrap", s.bootstrap)
+	mux.HandleFunc("GET /api/rooms", s.rooms)
+	mux.HandleFunc("POST /api/rooms", s.rooms)
+	mux.HandleFunc("PUT /api/rooms/{id}", s.room)
+	mux.HandleFunc("DELETE /api/rooms/{id}", s.room)
 	mux.HandleFunc("GET /api/plants", s.plants)
 	mux.HandleFunc("POST /api/plants", s.plants)
 	mux.HandleFunc("GET /api/plants/{id}", s.plant)
@@ -82,17 +86,13 @@ func (s *Server) plants(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, 200, map[string]any{"plants": list})
 		return
 	}
-	var in storage.Plant
-	if !decode(w, r, &in) {
-		return
-	}
-	if err := validPlant(in); err != "" {
-		fail(w, 400, err)
+	in, ok := decodePlant(w, r, nil)
+	if !ok {
 		return
 	}
 	in.ID = storage.NewID()
 	if err := s.Store.SavePlant(r.Context(), in); err != nil {
-		fail(w, 500, "Could not save plant")
+		plantSaveError(w, err)
 		return
 	}
 	jsonOut(w, 201, in)
@@ -126,17 +126,18 @@ func (s *Server) plant(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 		return
 	}
-	var in storage.Plant
-	if !decode(w, r, &in) {
+	previous, err := s.Store.GetPlant(r.Context(), id)
+	if err != nil {
+		fail(w, 404, "Plant not found")
 		return
 	}
-	if err := validPlant(in); err != "" {
-		fail(w, 400, err)
+	in, ok := decodePlant(w, r, &previous)
+	if !ok {
 		return
 	}
 	in.ID = id
 	if err := s.Store.SavePlant(r.Context(), in); err != nil {
-		fail(w, 500, "Could not update plant")
+		plantSaveError(w, err)
 		return
 	}
 	jsonOut(w, 200, in)
@@ -383,7 +384,7 @@ func (s *Server) deletePhoto(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) today(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().In(s.Location)
-	all, err := s.calculateDue(r.Context(), now)
+	all, notStarted, err := s.calculateCare(r.Context(), now)
 	if err != nil {
 		fail(w, 500, "Could not load care schedule")
 		return
@@ -396,19 +397,24 @@ func (s *Server) today(w http.ResponseWriter, r *http.Request) {
 			due = append(due, item)
 		}
 	}
-	jsonOut(w, 200, map[string]any{"date": now.Format("2006-01-02"), "computed_at": time.Now().UTC(), "timezone": s.Config.Timezone, "season": care.Season(now), "due": due, "next": next})
+	jsonOut(w, 200, map[string]any{"date": now.Format("2006-01-02"), "computed_at": time.Now().UTC(), "timezone": s.Config.Timezone, "season": care.Season(now), "due": due, "next": next, "not_started": notStarted})
 }
 
 func (s *Server) calculateDue(ctx context.Context, now time.Time) ([]map[string]any, error) {
+	due, _, err := s.calculateCare(ctx, now)
+	return due, err
+}
+
+func (s *Server) calculateCare(ctx context.Context, now time.Time) ([]map[string]any, []map[string]any, error) {
 	plants, err := s.Store.ListPlants(ctx, "")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var due []map[string]any
+	due, notStarted := []map[string]any{}, []map[string]any{}
 	for _, p := range plants {
 		acts, activityErr := s.Store.ListActivities(ctx, p.ID)
 		if activityErr != nil {
-			return nil, activityErr
+			return nil, nil, activityErr
 		}
 		var water, feed *time.Time
 		for i := range acts {
@@ -424,11 +430,21 @@ func (s *Server) calculateDue(ctx context.Context, now time.Time) ([]map[string]
 				}
 			}
 		}
-		start, _ := time.ParseInLocation("2006-01-02", p.CareStartDate, s.Location)
-		items := care.Calculate(care.PlantSchedule{CareStart: start, WaterDays: p.WateringIntervalDays, SummerFeedDays: p.SummerFertilizingIntervalDays, WinterFeedDays: p.WinterFertilizingIntervalDays, SummerFeedPaused: p.SummerFertilizingPaused, WinterFeedPaused: p.WinterFertilizingPaused, LastWater: water, LastFeed: feed}, now, s.Location)
-		for _, d := range items {
+		var start *time.Time
+		if p.CareStartDate != "" {
+			parsed, err := time.ParseInLocation("2006-01-02", p.CareStartDate, s.Location)
+			if err != nil {
+				return nil, nil, err
+			}
+			start = &parsed
+		}
+		items := care.Evaluate(care.PlantSchedule{CareStart: start, WaterDays: p.WateringIntervalDays, SummerFeedDays: p.SummerFertilizingIntervalDays, WinterFeedDays: p.WinterFertilizingIntervalDays, SummerFeedPaused: p.SummerFertilizingPaused, WinterFeedPaused: p.WinterFertilizingPaused, LastWater: water, LastFeed: feed}, now, s.Location)
+		for _, d := range items.Due {
 			diff := calendarDayDiff(now, d.DueAt, s.Location)
-			due = append(due, map[string]any{"plant_id": p.ID, "plant_name": p.Name, "type": d.Type, "due_date": d.DueAt, "days_overdue": max(0, diff), "days_until": max(0, -diff)})
+			due = append(due, map[string]any{"plant_id": p.ID, "plant_name": p.Name, "photo_url": p.PhotoURL, "room_id": p.RoomID, "type": d.Type, "due_date": d.DueAt, "days_overdue": max(0, diff), "days_until": max(0, -diff)})
+		}
+		for _, item := range items.NotStarted {
+			notStarted = append(notStarted, map[string]any{"plant_id": p.ID, "plant_name": p.Name, "photo_url": p.PhotoURL, "room_id": p.RoomID, "type": item.Type, "interval_days": item.IntervalDays})
 		}
 	}
 	sort.SliceStable(due, func(i, j int) bool {
@@ -436,7 +452,7 @@ func (s *Server) calculateDue(ctx context.Context, now time.Time) ([]map[string]
 		right := due[j]["due_date"].(time.Time)
 		return left.Before(right)
 	})
-	return due, nil
+	return due, notStarted, nil
 }
 
 func calendarDayDiff(now, due time.Time, loc *time.Location) int {
@@ -478,8 +494,11 @@ func validPlant(p storage.Plant) string {
 	if strings.TrimSpace(p.Name) == "" || len(p.Name) > 120 {
 		return "Plant name is required and must be under 120 characters"
 	}
-	if _, err := time.Parse("2006-01-02", p.CareStartDate); err != nil {
+	if _, err := time.Parse("2006-01-02", p.CareStartDate); p.CareStartDate != "" && err != nil {
 		return "Care start date must use YYYY-MM-DD"
+	}
+	if p.RoomID != nil && !idPattern.MatchString(*p.RoomID) {
+		return "Invalid room ID"
 	}
 	if p.WateringIntervalDays < 1 || p.WateringIntervalDays > 365 {
 		return "Watering interval must be between 1 and 365 days"

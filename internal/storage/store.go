@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,6 +100,10 @@ func sqliteDSN(databaseURL string) string {
 func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) Migrate(ctx context.Context) error {
+	return s.migrate(ctx, migrations)
+}
+
+func (s *Store) migrate(ctx context.Context, scripts fs.FS) error {
 	ledger := `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)`
 	if s.dialect == "postgres" {
 		ledger = `CREATE TABLE IF NOT EXISTS schema_migrations (version BIGINT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL)`
@@ -105,38 +111,66 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, ledger); err != nil {
 		return fmt.Errorf("create migration ledger: %w", err)
 	}
-	name := "migrations/000001_init." + s.dialect + ".sql"
-	script, err := fs.ReadFile(migrations, name)
+	names, err := fs.Glob(scripts, "migrations/*."+s.dialect+".sql")
 	if err != nil {
-		return fmt.Errorf("read %s migration: %w", s.dialect, err)
+		return fmt.Errorf("list migrations: %w", err)
 	}
-	var version int
-	err = s.db.QueryRowContext(ctx, "SELECT version FROM schema_migrations WHERE version = 1").Scan(&version)
-	switch {
-	case err == nil:
-		return nil
-	case !errors.Is(err, sql.ErrNoRows):
-		return fmt.Errorf("check database migration version: %w", err)
+	type migration struct {
+		version int
+		name    string
 	}
+	ordered := make([]migration, 0, len(names))
+	seen := map[int]bool{}
+	for _, name := range names {
+		version, err := strconv.Atoi(strings.SplitN(filepath.Base(name), "_", 2)[0])
+		if err != nil || version < 1 || seen[version] {
+			return fmt.Errorf("invalid or duplicate migration version: %s", name)
+		}
+		seen[version] = true
+		ordered = append(ordered, migration{version, name})
+	}
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].version < ordered[j].version })
+	for _, m := range ordered {
+		var version int
+		err := s.db.QueryRowContext(ctx, s.query("SELECT version FROM schema_migrations WHERE version = ?"), m.version).Scan(&version)
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("check migration version: %w", err)
+		}
+		script, err := fs.ReadFile(scripts, m.name)
+		if err != nil {
+			return fmt.Errorf("read migration: %w", err)
+		}
+		if err := s.applyMigration(ctx, m.version, string(script)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) applyMigration(ctx context.Context, version int, script string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin schema migration: %w", err)
 	}
-	for _, statement := range strings.Split(string(script), ";") {
+	defer tx.Rollback()
+	for _, statement := range strings.Split(script, ";") {
 		statement = strings.TrimSpace(statement)
 		if statement == "" {
 			continue
 		}
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			_ = tx.Rollback()
-			return fmt.Errorf("apply database migration 1: %w", err)
+			return fmt.Errorf("apply database migration %d: %w", version, err)
 		}
 	}
 	appliedAt := any(instant(time.Now()).Format(time.RFC3339Nano))
 	if s.dialect == "postgres" {
 		appliedAt = instant(time.Now())
 	}
-	if _, err := tx.ExecContext(ctx, s.query("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)"), 1, appliedAt); err != nil {
+	if _, err := tx.ExecContext(ctx, s.query("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)"), version, appliedAt); err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("record applied migration: %w", err)
 	}

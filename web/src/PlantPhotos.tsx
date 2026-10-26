@@ -14,7 +14,7 @@ export function CachedImage({ src, alt }: { src: string; alt: string }) {
     }).catch(() => { if (active) setUrl(''); });
     return () => { active = false; if (objectURL) URL.revokeObjectURL(objectURL); };
   }, [src]);
-  return url ? <img src={url} alt={alt} loading="lazy"/> : <span role="img" aria-label={alt}>🌿</span>;
+  return url ? <img src={url} alt={alt} loading="lazy" onError={() => setUrl('')}/> : <span role="img" aria-label={alt}>🌿</span>;
 }
 
 type Photo = { id: string; filename: string; created_at: string };

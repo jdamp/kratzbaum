@@ -2,6 +2,7 @@ export type ActivityType = 'watering' | 'fertilizing' | 'photo' | 'note';
 
 export interface Plant {
   id: string;
+  room_id?: string | null;
   name: string;
   scientific_name: string;
   common_name: string;
@@ -36,10 +37,25 @@ export interface DueCare {
   plant_id: string;
   plant_name: string;
   photo_url?: string;
+  room_id?: string | null;
   type: 'watering' | 'fertilizing';
   due_date: string;
   days_overdue: number;
   days_until: number;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+}
+
+export interface NotStartedCare {
+  plant_id: string;
+  plant_name: string;
+  photo_url?: string;
+  room_id?: string | null;
+  type: 'watering' | 'fertilizing';
+  interval_days: number;
 }
 
 export interface TodayResponse {
@@ -49,6 +65,7 @@ export interface TodayResponse {
   season: 'summer' | 'winter';
   due: DueCare[];
   next: DueCare[];
+  not_started: NotStartedCare[];
 }
 
 export interface CalendarResponse {
@@ -78,6 +95,7 @@ export interface PlantInput {
   family: string;
   notes: string;
   care_start_date: string;
+  room_id?: string | null;
   watering_interval_days: number;
   summer_fertilizing_interval_days: number | null;
   winter_fertilizing_interval_days: number | null;

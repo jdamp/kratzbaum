@@ -81,6 +81,10 @@ func TestPostgresRepositoryContractAgainstDisposableDatabase(t *testing.T) {
 		cfg := config.Config{DatabaseDriver: "postgres", DatabaseURL: newSchemaURL(), DataDir: dir, MediaDir: filepath.Join(dir, "media")}
 		runRepositoryContract(t, cfg)
 	})
+	t.Run("populated version-1 upgrade", func(t *testing.T) {
+		dir := t.TempDir()
+		runMigrationUpgradeContract(t, config.Config{DatabaseDriver: "postgres", DatabaseURL: newSchemaURL(), DataDir: dir})
+	})
 	t.Run("migration failure prevents opening", func(t *testing.T) {
 		dir := t.TempDir()
 		databaseURL := newSchemaURL()
@@ -261,7 +265,8 @@ func assertBackupFixture(t *testing.T, cfg config.Config, plantID, photoID strin
 	if !seenNote || !seenPhoto || watering.IsZero() {
 		t.Fatalf("restored timeline is missing watering, note, or photo: %#v", activities)
 	}
-	schedule := care.PlantSchedule{CareStart: time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC), WaterDays: plant.WateringIntervalDays, SummerFeedDays: plant.SummerFertilizingIntervalDays, WinterFeedDays: plant.WinterFertilizingIntervalDays, LastWater: &watering}
+	start := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	schedule := care.PlantSchedule{CareStart: &start, WaterDays: plant.WateringIntervalDays, SummerFeedDays: plant.SummerFertilizingIntervalDays, WinterFeedDays: plant.WinterFertilizingIntervalDays, LastWater: &watering}
 	due := care.Calculate(schedule, time.Date(2026, time.October, 10, 0, 0, 0, 0, time.UTC), time.UTC)
 	if len(due) != 2 || due[0].DueAt.Format("2006-01-02") != "2026-10-14" || due[1].DueAt.Format("2006-01-02") != "2026-10-11" {
 		t.Fatalf("restored schedule due state: %#v", due)
@@ -314,6 +319,7 @@ func runRepositoryContract(t *testing.T, cfg config.Config) {
 		t.Fatalf("first startup/migration: %v", err)
 	}
 
+	runRoomContract(t, store)
 	plant := Plant{Name: "Fern", ScientificName: "Nephrolepis exaltata", CommonName: "Sword fern", CareStartDate: "2026-01-01", WateringIntervalDays: 8, SummerFertilizingIntervalDays: intPointer(18), WinterFertilizingIntervalDays: intPointer(42), WinterFertilizingPaused: true}
 	if err := store.SavePlant(ctx, plant); err != nil {
 		t.Fatal(err)

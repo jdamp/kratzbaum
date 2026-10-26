@@ -35,11 +35,19 @@ The system SHALL allow users with collection access to create, browse, edit, and
 - **THEN** the creation flow closes, the saved plant is visible in the collection, and no additional upload is attempted
 
 ### Requirement: Browse and search the catalogue
-The system SHALL display plant names, species information when present, representative photos when present, and care-status information. Users SHALL be able to search by plant name or saved species name.
+The system SHALL display plant names, species information when present, representative photos when present, and care-status information. Users SHALL be able to search by plant name or saved species name and combine search with All rooms, a specific room, or Unassigned. Plant cards and detail SHALL identify an assigned room when present. A filtered empty result SHALL be distinguishable from an empty collection.
 
 #### Scenario: Find a saved plant
 - **WHEN** a user searches for text appearing in a saved plant's name or species
 - **THEN** the catalogue displays matching plants and an explicit empty state if none match
+
+#### Scenario: Search within a room
+- **WHEN** the user selects Wohnzimmer and searches for a saved plant name or species
+- **THEN** only plants in Wohnzimmer matching that search are displayed
+
+#### Scenario: Empty room result
+- **WHEN** the collection has plants but the selected room and search match none
+- **THEN** the interface explains that no plants match the selection and allows changing or clearing the filters
 
 ### Requirement: Manage plant photographs
 The system SHALL accept JPG, PNG, WebP, and HEIC photographs, associate successfully normalized images with a plant, and allow selecting a cover image and removing photos. A successful photo addition SHALL create one dated photo activity; a failed upload SHALL NOT create a photo activity or replace the existing cover. A photo selected during plant creation SHALL use the same format support and normalization as a gallery upload. The first successfully attached photo SHALL become the cover when the plant has no cover. Photo selection and upload SHALL NOT automatically request species identification.
