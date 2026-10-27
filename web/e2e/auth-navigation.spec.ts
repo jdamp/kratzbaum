@@ -183,7 +183,7 @@ for (const accept of [false, true]) {
   });
 }
 
-for (const path of ['/plants', '/plants/00000000-0000-0000-0000-000000000001', '/calendar', '/login']) {
+for (const path of ['/plants', '/plants/00000000-0000-0000-0000-000000000001', '/calendar', '/rooms', '/login']) {
   test('signed-out destination shows only login: ' + path, async ({page, auth}) => {
     await page.setViewportSize({width:320,height:740});
     await page.goto(auth.origin + path);

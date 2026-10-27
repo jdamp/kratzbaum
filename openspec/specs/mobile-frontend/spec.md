@@ -7,15 +7,20 @@ Provide a responsive, accessible interface for browsing a photo-led plant collec
 ## Requirements
 
 ### Requirement: Responsive primary navigation
-The interface SHALL provide Today, Plants, and Calendar destinations, persistent labelled bottom navigation on phones, and an equivalent desktop navigation layout. Settings/account controls SHALL be reachable from the application shell. Primary screens SHALL work at 320 CSS pixels without horizontal page scrolling.
+The interface SHALL provide Today, Plants, Calendar, and Rooms destinations in that order, persistent labelled bottom navigation on phones, and an equivalent desktop navigation layout with Rooms below Calendar. Settings/account controls SHALL be reachable from the application shell. Rooms SHALL expose room management at `/rooms` instead of embedding it in Settings, and direct visits or reloads SHALL open that destination. Primary screens SHALL work at 320 CSS pixels without horizontal page scrolling.
 
 #### Scenario: Navigate on a phone
 - **WHEN** a user opens the application at a 320 CSS-pixel viewport width
-- **THEN** the three destinations and settings access remain usable and their primary content fits the viewport
+- **THEN** the four destinations and settings access remain usable and their primary content fits the viewport
 
 #### Scenario: Navigate on desktop
 - **WHEN** a user opens the application at a desktop viewport
 - **THEN** the same destinations are accessible and the catalogue/content layout uses the available width
+- **AND** Rooms appears below Calendar in the sidebar
+
+#### Scenario: Open Rooms directly
+- **WHEN** an authorized user visits or reloads `/rooms`
+- **THEN** the Rooms destination is selected and its room-management controls are displayed
 
 ### Requirement: Today care overview
 Today SHALL show overdue care before due-today and upcoming care, including the plant, activity type, and due information. It SHALL show a separate Not started yet section for configured, currently enabled schedules without an anchor, including plant name, care type, interval, and an individual Watered or Fertilized action without a due or overdue label. Users SHALL be able to open an activity-entry form from a due or not-started item, change the completed date/time, and save. Saving SHALL disable duplicate submission and update affected views only after server confirmation. Care recording SHALL remain available from plant detail independently of reminder eligibility.
@@ -207,7 +212,7 @@ The add/edit plant form SHALL allow a blank care start date while retaining vali
 - **THEN** the saved date is shown and can be retained, changed, or cleared
 
 ### Requirement: Reminder photo previews
-Today due, upcoming, and not-started items SHALL display the plant's current cover-photo thumbnail when available. Missing or unavailable photos SHALL use a nonbroken fallback while retaining the plant name, activity icon and text, status, and applicable care action. Photo previews SHALL fit the mobile layout and SHALL NOT be required to understand or operate a reminder.
+Today due, upcoming, and not-started items SHALL display the plant's current cover-photo thumbnail when available. Missing or unavailable photos SHALL use a nonbroken fallback while retaining the plant name, activity icon and text, status, and applicable care action. Photo previews SHALL fit the mobile layout and SHALL NOT be required to understand or operate a reminder. Each thumbnail or fallback SHALL be a labelled, keyboard-accessible link to its plant detail, independent of the care-completion action.
 
 #### Scenario: Upcoming plant with a photo
 - **WHEN** an upcoming reminder belongs to a plant with an available cover photo
@@ -220,3 +225,18 @@ Today due, upcoming, and not-started items SHALL display the plant's current cov
 #### Scenario: Cover selection changes
 - **WHEN** a user changes or removes a cover photo and the collection is refreshed
 - **THEN** affected reminders show the current cover thumbnail or fallback
+
+#### Scenario: Open a plant from an upcoming reminder
+- **WHEN** a user clicks or keyboard-activates an upcoming reminder's thumbnail or fallback
+- **THEN** the corresponding plant detail opens without recording a care activity
+
+### Requirement: Simple new-note entry
+The plant-detail new-note form SHALL provide note text and a save action without a Written at field or other date/time input. Submitting SHALL use the current server time rather than when the form was opened. Failed submissions SHALL retain note text and remain explicitly retryable; offline submissions SHALL remain disabled. Existing note correction SHALL retain its activity date/time editing controls.
+
+#### Scenario: Save a note after leaving the form open
+- **WHEN** a user writes and saves a new note after the plant page has been open for some time
+- **THEN** the note receives the current save time and no new-note timestamp input is displayed
+
+#### Scenario: Failed note save
+- **WHEN** a new note cannot be saved
+- **THEN** its text remains available and no successful note is fabricated

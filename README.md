@@ -20,7 +20,9 @@ The first run creates `./data/kratzbaum.db` and `./data/media`. Set `APP_TIMEZON
 
 ## Rooms and care
 
-Create, rename, or delete rooms in **Settings → Manage rooms**, or open **Manage rooms** from the plant form without losing the draft. Assign each plant to one optional room using **Room · optional**. Plants and Today share an **All rooms / room / Unassigned** filter, so you can work through one room with individual care actions. Catalogue search combines with its room filter; it does not hide care actions on Today. Deleting a room keeps its plants, photos, and history and makes the plants unassigned.
+Create, rename, or delete rooms in **Rooms** (after Calendar in the sidebar and phone navigation), or open **Manage rooms** from the plant form without losing the draft. Assign each plant to one optional room using **Room · optional**. Plants and Today share an **All rooms / room / Unassigned** filter, so you can work through one room with individual care actions. Catalogue search combines with its room filter; it does not hide care actions on Today. Deleting a room keeps its plants, photos, and history and makes the plants unassigned.
+
+Click a reminder photo or its fallback to open that plant directly. New care notes use the current save time automatically; existing note timestamps remain editable.
 
 Successfully cached plants, rooms, reminders, and photos remain readable offline, including room filtering. Offline views show their saved refresh time; care recording and room changes require a connection. Room data that was not cached is shown as unavailable.
 

@@ -10,8 +10,10 @@ import { LoginPage } from './LoginPage';
 import { scientificNameWikipediaURL } from './wikipedia';
 import { CareEntryDialog, CareRow } from './CareOverview';
 import { inRoom, RoomFilter, RoomManager } from './Rooms';
+import type { RoomChange } from './Rooms';
 import { registerSW } from 'virtual:pwa-register';
 type PlantList={plants:Plant[]};
+type Tab='today'|'plants'|'calendar'|'rooms'|'settings';
 const todayISO=()=>new Date().toISOString().slice(0,10);
 function App() {
  const online = useOnline();
@@ -29,7 +31,7 @@ function App() {
  const [editing,setEditing] = useState<Plant|null>(null);
  const [careEntry,setCareEntry] = useState<{plant:Plant;type:'watering'|'fertilizing'}|null>(null);
  const [revision,setRevision] = useState(0);
- const [tab,setTab] = useState<'today'|'plants'|'calendar'|'settings'>(location.pathname.includes('calendar')?'calendar':location.pathname.includes('plants')?'plants':'today');
+ const [tab,setTab] = useState<Tab>(location.pathname.includes('rooms')?'rooms':location.pathname.includes('calendar')?'calendar':location.pathname.includes('plants')?'plants':'today');
  const [plant,setPlant] = useState<Plant|null>(null);
  const [activities,setActivities] = useState<Activity[]>([]);
  const [activityFilter,setActivityFilter] = useState<'all'|ActivityType>('all');
@@ -101,19 +103,36 @@ function App() {
   window.addEventListener('kratzbaum:access-denied',denied);
   return()=>window.removeEventListener('kratzbaum:access-denied',denied);
  },[]);
+ const roomEpoch=accessEpoch.current;
+ const applyRoomChange=(change:RoomChange)=>{
+  if(roomEpoch!==accessEpoch.current)return;
+  // An older collection read must not replace a confirmed room mutation.
+  loadVersion.current++;setLoading(false);setRoomsUnavailable(false);
+  if(change.type==='saved'){
+   setRooms(current=>[...current.filter(room=>room.id!==change.room.id),change.room].sort((a,b)=>a.name.localeCompare(b.name)));
+   return;
+  }
+  const unassign=<T extends {room_id?:string|null}>(item:T):T=>item.room_id===change.id?{...item,room_id:null}:item;
+  setRooms(current=>current.filter(room=>room.id!==change.id));
+  setSelectedRoom(current=>current===change.id?'all':current);
+  setPlants(current=>current.map(unassign));
+  setPlant(current=>current?unassign(current):null);
+  setEditing(current=>current?unassign(current):null);
+  setToday(current=>current?{...current,due:current.due.map(unassign),next:current.next.map(unassign),not_started:current.not_started.map(unassign)}:current);
+ };
  const openPlant=async(p:Plant)=>{
   const epoch=accessEpoch.current;
   setPlant(p);setActivityFilter('all');setTab('plants');history.pushState({},'','/plants/'+p.id);
   try{const data=await get<{plant:Plant;activities:Activity[]}>('/api/plants/'+p.id);if(epoch===accessEpoch.current){setPlant(data.plant);setActivities(data.activities);}}
   catch(e){if(epoch===accessEpoch.current)setError(String(e));}
  };
- const nav=(destination:'today'|'plants'|'calendar'|'settings')=>{setPlant(null);setTab(destination);history.pushState({},'',destination==='today'?'/':'/'+destination);};
+ const nav=(destination:Tab)=>{setPlant(null);setTab(destination);history.pushState({},'',destination==='today'?'/':'/'+destination);};
  const record=async(p:Plant,type:'watering'|'fertilizing'|'note',note='',occurredAt?:string):Promise<boolean>=>{
   const key=p.id+':'+type;
   if(pendingRecords.current.has(key))return false;
   pendingRecords.current.add(key);
   try {
-   await send('/api/plants/'+p.id+'/activities',{type,occurred_at:occurredAt||new Date().toISOString(),note},'POST',{'Idempotency-Key':crypto.randomUUID()});
+   await send('/api/plants/'+p.id+'/activities',{type,note,...(type==='note'&&!occurredAt?{}:{occurred_at:occurredAt||new Date().toISOString()})},'POST',{'Idempotency-Key':crypto.randomUUID()});
    await refresh();setRevision(value=>value+1);
    if(plant?.id===p.id)await openPlant(p);
    return true;
@@ -132,12 +151,12 @@ function App() {
  const notStarted=(today?.not_started??[]).filter(item=>inRoom(item,selectedRoom));
  const careRow=(item:DueCare|TodayResponse['not_started'][number],action:boolean)=>{
   const target=plants.find(p=>p.id===item.plant_id);
-  return <CareRow key={item.plant_id+item.type} item={item} disabled={offline||!target} onRecord={action?()=>{if(target)setCareEntry({plant:target,type:item.type});}:undefined}/>;
+  return <CareRow key={item.plant_id+item.type} item={item} onOpen={target?()=>{void openPlant(target);}:undefined} disabled={offline||!target} onRecord={action?()=>{if(target)setCareEntry({plant:target,type:item.type});}:undefined}/>;
  };
  return <div className="app-shell">
   <header className="topbar"><a className="brand" href="/" onClick={e=>{e.preventDefault();nav('today');}}><span className="brand-mark">k</span>kratzbaum</a><span className="top-date">{new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric'}).format(new Date())}</span><button className="icon-button" onClick={()=>nav('settings')} aria-label="Settings">⚙</button></header>
   <main className="content">
-   <div className="page-heading"><div><p className="eyebrow">{plant?'PLANT DETAILS':'YOUR INDOOR JUNGLE'}</p><h1>{plant?.name??({today:'Today',plants:'Your plants',calendar:'Calendar',settings:'Settings'}[tab])}</h1></div>{tab==='plants'&&!plant&&<button className="primary" disabled={offline} onClick={()=>{setEditing(null);setDialog(true);}}>＋ Add plant</button>}</div>
+   <div className="page-heading"><div><p className="eyebrow">{plant?'PLANT DETAILS':'YOUR INDOOR JUNGLE'}</p><h1>{plant?.name??({today:'Today',plants:'Your plants',calendar:'Calendar',rooms:'Rooms',settings:'Settings'}[tab])}</h1></div>{tab==='plants'&&!plant&&<button className="primary" disabled={offline} onClick={()=>{setEditing(null);setDialog(true);}}>＋ Add plant</button>}</div>
    {offline&&<p role="status" className="offline-banner">Offline · saved reads only. Last refreshed: {today?.computed_at?new Date(today.computed_at).toLocaleString():'unavailable'}.</p>}
    {error&&<div role="alert" className="alert">{error}<button aria-label="Dismiss error" onClick={()=>setError('')}>×</button></div>}
    {loading&&<p role="status" className="muted">Loading your collection…</p>}
@@ -154,13 +173,14 @@ function App() {
     <label className="search">⌕ <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search plants or species" aria-label="Search plants"/></label>
     {visiblePlants.length?<Grid plants={visiblePlants} open={openPlant} roomName={roomName}/>:plants.length?<div className="empty-card"><b>No plants match this selection</b><p>Try another room or search.</p><button className="text-button" onClick={()=>{setQuery('');setSelectedRoom('all');}}>Clear filters</button></div>:<div className="empty-card"><span>🪴</span><b>Your collection is waiting</b><p>Add a plant and keep its care in one place.</p><button className="primary" disabled={offline} onClick={()=>{setEditing(null);setDialog(true);}}>＋ Add your first plant</button></div>}
    </>}
-   {tab==='plants'&&plant&&<section><button className="text-button" onClick={()=>{setPlant(null);history.pushState({},'','/plants')}}>← All plants</button><div className="detail-hero"><span>🌿</span><div><h2>{speciesURL?<a className="species-reference" href={speciesURL} target="_blank" rel="noopener noreferrer" aria-label={`${plant.scientific_name.trim()} on Wikipedia (opens in a new tab)`}>{plant.scientific_name.trim()} <span aria-hidden="true">↗</span></a>:plant.common_name||'Species not set'}</h2><p>{plant.family||'Plant family not set'}</p></div></div><p className="muted">Room: {roomName(plant.room_id)}</p><PlantPhotos key={plant.id} plant={plant} available={boot.plantnet_available} offline={!online||boot.offline} onBusyChange={setSpeciesBusy} onChanged={()=>{void refresh();void openPlant(plant)}}/><button className="secondary" disabled={speciesBusy||offline} onClick={()=>{setEditing(plant);setDialog(true)}}>Edit plant and care schedule</button><div className="schedule-cards"><div><small>WATERING</small><b>Every {plant.watering_interval_days} days</b></div><div><small>FERTILIZE · SUMMER</small><b>{plant.summer_fertilizing_interval_days?`Every ${plant.summer_fertilizing_interval_days} days`:'Not set'}</b></div><div><small>FERTILIZE · WINTER</small><b>{plant.winter_fertilizing_interval_days?`Every ${plant.winter_fertilizing_interval_days} days`:'Not set'}</b></div></div><div className="quick-actions"><QuickEntry offline={offline} plant={plant} type="watering" record={record}/><QuickEntry offline={offline} plant={plant} type="fertilizing" record={record}/></div><NoteForm offline={offline} save={(n,date)=>record(plant,'note',n,new Date(date).toISOString())}/><h2 className="section-title">Timeline <span>{activities.length}</span></h2><div className="activity-filters">{(['all','watering','fertilizing','photo','note'] as const).map(kind=><button key={kind} aria-pressed={activityFilter===kind} onClick={()=>setActivityFilter(kind)}>{kind==='all'?'All':activityLabels[kind]}</button>)}</div>{activities.filter(a=>activityFilter==='all'||a.type===activityFilter).map(a=><ActivityRow key={a.id} activity={a} offline={offline} onChanged={()=>{void refresh();void openPlant(plant);setRevision(value=>value+1)}}/>)}</section>}
+   {tab==='plants'&&plant&&<section><button className="text-button" onClick={()=>{setPlant(null);history.pushState({},'','/plants')}}>← All plants</button><div className="detail-hero"><span>🌿</span><div><h2>{speciesURL?<a className="species-reference" href={speciesURL} target="_blank" rel="noopener noreferrer" aria-label={`${plant.scientific_name.trim()} on Wikipedia (opens in a new tab)`}>{plant.scientific_name.trim()} <span aria-hidden="true">↗</span></a>:plant.common_name||'Species not set'}</h2><p>{plant.family||'Plant family not set'}</p></div></div><p className="muted">Room: {roomName(plant.room_id)}</p><PlantPhotos key={plant.id} plant={plant} available={boot.plantnet_available} offline={!online||boot.offline} onBusyChange={setSpeciesBusy} onChanged={()=>{void refresh();void openPlant(plant)}}/><button className="secondary" disabled={speciesBusy||offline} onClick={()=>{setEditing(plant);setDialog(true)}}>Edit plant and care schedule</button><div className="schedule-cards"><div><small>WATERING</small><b>Every {plant.watering_interval_days} days</b></div><div><small>FERTILIZE · SUMMER</small><b>{plant.summer_fertilizing_interval_days?`Every ${plant.summer_fertilizing_interval_days} days`:'Not set'}</b></div><div><small>FERTILIZE · WINTER</small><b>{plant.winter_fertilizing_interval_days?`Every ${plant.winter_fertilizing_interval_days} days`:'Not set'}</b></div></div><div className="quick-actions"><QuickEntry offline={offline} plant={plant} type="watering" record={record}/><QuickEntry offline={offline} plant={plant} type="fertilizing" record={record}/></div><NoteForm offline={offline} save={note=>record(plant,'note',note)}/><h2 className="section-title">Timeline <span>{activities.length}</span></h2><div className="activity-filters">{(['all','watering','fertilizing','photo','note'] as const).map(kind=><button key={kind} aria-pressed={activityFilter===kind} onClick={()=>setActivityFilter(kind)}>{kind==='all'?'All':activityLabels[kind]}</button>)}</div>{activities.filter(a=>activityFilter==='all'||a.type===activityFilter).map(a=><ActivityRow key={a.id} activity={a} offline={offline} onChanged={()=>{void refresh();void openPlant(plant);setRevision(value=>value+1)}}/>)}</section>}
 
    {tab==='calendar'&&<Calendar key={revision} plants={plants} month={month} change={setMonth}/>}
-   {tab==='settings'&&<><section className="settings-card"><h2>Collection settings</h2><p>One shared collection for everyone with access to this deployment.</p><dl><dt>Signed in</dt><dd>{boot?.display_name||(boot?.authenticated?'Yes':'No')}</dd><dt>Sign-in mode</dt><dd>{boot?.auth_mode==='oidc'?'OpenID Connect':'Open access'}</dd><dt>Timezone</dt><dd>{boot?.timezone??'—'}</dd><dt>Species identification</dt><dd>{boot?.plantnet_available?'PlantNet configured':'Enter species manually'}</dd><dt>Care advice</dt><dd>Add your own notes on each plant.</dd><dt>Connection</dt><dd>{boot?.offline?'Offline · saved reads only':'Online'}</dd><dt>Last schedule calculation</dt><dd>{today?.computed_at?new Date(today.computed_at).toLocaleString():'Not available offline'}</dd></dl>{boot?.auth_mode==='oidc'&&boot.authenticated&&<button className="secondary" onClick={async()=>{localStorage.setItem('kratzbaum-local-logout','1');await finishPendingLogout();await clearLocalCollection();location.assign('/')}}>Sign out</button>}</section><RoomManager rooms={rooms} offline={offline} unavailable={roomsUnavailable} onChanged={refresh}/></>}
+   {tab==='rooms'&&<div className="rooms-page"><RoomManager rooms={rooms} offline={offline} unavailable={roomsUnavailable} onChanged={applyRoomChange}/></div>}
+   {tab==='settings'&&<section className="settings-card"><h2>Collection settings</h2><p>One shared collection for everyone with access to this deployment.</p><dl><dt>Signed in</dt><dd>{boot?.display_name||(boot?.authenticated?'Yes':'No')}</dd><dt>Sign-in mode</dt><dd>{boot?.auth_mode==='oidc'?'OpenID Connect':'Open access'}</dd><dt>Timezone</dt><dd>{boot?.timezone??'—'}</dd><dt>Species identification</dt><dd>{boot?.plantnet_available?'PlantNet configured':'Enter species manually'}</dd><dt>Care advice</dt><dd>Add your own notes on each plant.</dd><dt>Connection</dt><dd>{boot?.offline?'Offline · saved reads only':'Online'}</dd><dt>Last schedule calculation</dt><dd>{today?.computed_at?new Date(today.computed_at).toLocaleString():'Not available offline'}</dd></dl>{boot?.auth_mode==='oidc'&&boot.authenticated&&<button className="secondary" onClick={async()=>{localStorage.setItem('kratzbaum-local-logout','1');await finishPendingLogout();await clearLocalCollection();location.assign('/')}}>Sign out</button>}</section>}
   </main>
-  <nav className="bottom-nav" aria-label="Main navigation">{(['today','plants','calendar'] as const).map(destination=><button key={destination} aria-current={tab===destination?'page':undefined} onClick={()=>nav(destination)}><span>{({today:'◷',plants:'♧',calendar:'▦'} as const)[destination]}</span>{destination[0].toUpperCase()+destination.slice(1)}</button>)}</nav>
-  {dialog&&<PlantDialog editing={editing} available={boot.plantnet_available} offline={offline} rooms={rooms} roomsUnavailable={roomsUnavailable} onRoomsChanged={refresh} onClose={()=>{setDialog(false);setEditing(null);}} onSaved={()=>{void (async()=>{await refresh();if(editing)await openPlant(editing);})().catch(e=>setError(e instanceof Error?e.message:'Unable to refresh your collection'));}}/>}
+  <nav className="bottom-nav" aria-label="Main navigation">{(['today','plants','calendar','rooms'] as const).map(destination=><button key={destination} aria-current={tab===destination?'page':undefined} onClick={()=>nav(destination)}><span aria-hidden="true">{({today:'◷',plants:'♧',calendar:'▦',rooms:'▤'} as const)[destination]}</span>{destination[0].toUpperCase()+destination.slice(1)}</button>)}</nav>
+  {dialog&&<PlantDialog editing={editing} available={boot.plantnet_available} offline={offline} rooms={rooms} roomsUnavailable={roomsUnavailable} onRoomsChanged={applyRoomChange} onClose={()=>{setDialog(false);setEditing(null);}} onSaved={()=>{void (async()=>{await refresh();if(editing)await openPlant(editing);})().catch(e=>setError(e instanceof Error?e.message:'Unable to refresh your collection'));}}/>}
   {careEntry&&<CareEntryDialog plant={careEntry.plant} type={careEntry.type} offline={offline} record={record} onClose={()=>setCareEntry(null)}/>}
  </div>;
 }
@@ -169,7 +189,22 @@ function Grid({plants,open,roomName}:{plants:Plant[];open:(p:Plant)=>void;roomNa
 function localDateTime(value?:string){const d=value?new Date(value):new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}
 function QuickEntry({plant,type,record,offline}:{offline:boolean;plant:Plant;type:'watering'|'fertilizing';record:(p:Plant,t:'watering'|'fertilizing'|'note',n?:string,date?:string)=>Promise<boolean>}){const [date,setDate]=useState(localDateTime()),[busy,setBusy]=useState(false);return <div className="quick-entry"><label>{type==='watering'?'Watered at':'Fertilized at'}<input aria-label={type==='watering'?'Watering date and time':'Fertilizing date and time'} type="datetime-local" required value={date} onChange={e=>setDate(e.target.value)}/></label><button onClick={async()=>{setBusy(true);if(await record(plant,type,'',new Date(date).toISOString()))setDate(localDateTime());setBusy(false)}} disabled={busy||offline}>{busy?'Saving…':type==='watering'?'◒ Record watering':'✳ Record fertilizing'}</button></div>}
 function ActivityRow({activity,onChanged,offline}:{activity:Activity;onChanged:()=>void;offline:boolean}){const [editing,setEditing]=useState(false),[date,setDate]=useState(localDateTime(activity.occurred_at)),[note,setNote]=useState(activity.note||''),[error,setError]=useState('');return <article className="timeline-item"><span className={'activity-dot '+activity.type}>{activity.type==='watering'?'◒':activity.type==='fertilizing'?'✳':activity.type==='photo'?'▧':'✎'}</span><div><b>{activityLabels[activity.type]}</b>{!editing&&activity.note&&<p>{activity.note}</p>}{editing?<div className="activity-edit"><label>Date and time<input type="datetime-local" value={date} onChange={e=>setDate(e.target.value)}/></label><textarea aria-label="Edit activity note" value={note} onChange={e=>setNote(e.target.value)}/><div><button className="text-button" onClick={()=>setEditing(false)}>Cancel</button><button className="text-button" disabled={offline} onClick={async()=>{try{await send('/api/activities/'+activity.id,{occurred_at:new Date(date).toISOString(),note},'PUT');setEditing(false);onChanged()}catch(e){setError(String(e))}}}>Save</button></div>{error&&<small role="alert">{error}</small>}</div>:<small>{new Date(activity.occurred_at).toLocaleString()}{activity.actor_name&&activity.actor_name!=="Shared collection"?` · by ${activity.actor_name}`:""}</small>}</div>{!editing&&<button className="text-button" disabled={offline} onClick={()=>setEditing(true)}>Edit</button>}<button className="delete-button" aria-label="Delete activity" disabled={offline} onClick={async()=>{await send('/api/activities/'+activity.id,undefined,'DELETE');onChanged()}}>×</button></article>}
-function NoteForm({save,offline}:{offline:boolean;save:(n:string,date:string)=>Promise<boolean>}){const [value,set]=useState(''),[date,setDate]=useState(localDateTime()),[busy,busySet]=useState(false);return <><h2 className="section-title">Care notes</h2><div className="note-form"><textarea value={value} onChange={e=>set(e.target.value)} placeholder="Add a care note or advice…" aria-label="Care note"/><label>Written at<input aria-label="Care note date and time" type="datetime-local" value={date} onChange={e=>setDate(e.target.value)}/></label><button className="primary" disabled={!value.trim()||busy||offline} onClick={async()=>{busySet(true);if(await save(value,date)){set('');setDate(localDateTime())}busySet(false)}}>Add note</button></div></>}
+function NoteForm({save,offline}:{offline:boolean;save:(note:string)=>Promise<boolean>}) {
+ const [value,setValue]=useState('');
+ const [busy,setBusy]=useState(false);
+ const pending=useRef(false);
+ return <><h2 className="section-title">Care notes</h2><form className="note-form" onSubmit={async event=>{
+  event.preventDefault();
+  if(pending.current||offline||!value.trim())return;
+  pending.current=true;setBusy(true);
+  try{if(await save(value))setValue('');}
+  finally{pending.current=false;setBusy(false);}
+ }}>
+  <textarea value={value} onChange={event=>setValue(event.target.value)} disabled={busy||offline} placeholder="Add a care note or advice…" aria-label="Care note"/>
+  <button className="primary" disabled={!value.trim()||busy||offline}>{busy?'Saving note…':'Add note'}</button>
+ </form></>;
+}
+
 function Calendar({plants,month,change}:{plants:Plant[];month:string;change:(m:string)=>void}){const [events,setEvents]=useState<Activity[]>([]),[due,setDue]=useState<DueCare[]>([]),[selected,setSelected]=useState(todayISO()),[error,setError]=useState('');useEffect(()=>{get<{activities:Activity[];due:DueCare[]}>('/api/calendar?month='+month).then(x=>{setEvents(x.activities);setDue(x.due);setError('')}).catch(e=>setError(e instanceof Error?e.message:'Calendar unavailable'))},[month]);const first=new Date(month+'-01T12:00:00'),start=new Date(first);start.setDate(1-first.getDay());const days=Array.from({length:42},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d});const key=(d:Date)=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');const selectedEvents=events.filter(e=>key(new Date(e.occurred_at))===selected),selectedDue=due.filter(d=>key(new Date(d.due_date))===selected);const shift=(n:number)=>{const d=new Date(first);d.setMonth(d.getMonth()+n);change(d.toISOString().slice(0,7))};return <section className="calendar-card"><div className="calendar-head"><button onClick={()=>shift(-1)} aria-label="Previous month">‹</button><h2>{first.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2><button onClick={()=>shift(1)} aria-label="Next month">›</button></div><div className="calendar-grid">{['S','M','T','W','T','F','S'].map((x,i)=><b key={i}>{x}</b>)}{days.map((d,i)=>{const day=key(d),items=events.filter(e=>key(new Date(e.occurred_at))===day),scheduled=due.filter(x=>key(new Date(x.due_date))===day);return <button key={i} onClick={()=>setSelected(day)} aria-pressed={selected===day} className={(d.getMonth()!==first.getMonth()?'outside ':'')+(day===todayISO()?'is-today ':'')+(selected===day?'is-selected':'')}>{d.getDate()}{[...items.map(x=>x.type),...scheduled.map(x=>x.type)].slice(0,4).map((type,j)=><i key={j} className={'calendar-mark '+type} title={activityLabels[type]}/>)}</button>})}</div><h3 className="section-title">{new Date(selected+'T12:00:00').toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</h3>{error&&<p className="muted">{error}</p>}{selectedDue.map(d=><div className="care-row" key={'due-'+d.plant_id+d.type}><span className={'activity-dot '+d.type}>{d.type==='watering'?'◒':'✳'}</span><div className="care-copy"><b>{d.plant_name}</b><small>{activityLabels[d.type]} · {d.days_overdue>0?d.days_overdue+' days overdue':'due today'}</small></div></div>)}{selectedEvents.length?selectedEvents.map(e=><article className="timeline-item" key={e.id}><span className={'activity-dot '+e.type}>{e.type==='watering'?'◒':e.type==='fertilizing'?'✳':'✎'}</span><div><b>{e.plant_name} · {activityLabels[e.type]}</b>{e.note&&<p>{e.note}</p>}<small>{new Date(e.occurred_at).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</small></div></article>):<p className="muted">No completed activity on this day.{plants.length===0?' Add a plant to begin.':''}</p>}</section>}
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, send, uploadPhoto } from './api';
 import type { Plant, PlantInput, Room } from './api';
 import { RoomManager } from './Rooms';
+import type { RoomChange } from './Rooms';
 import { Identification, photoTypes } from './Identification';
 
 
@@ -35,7 +36,7 @@ function PhotoPicker({ file, disabled, onChange }: { file: File | null; disabled
   </div>;
 }
 
-export function PlantDialog({ editing, available, offline, rooms, roomsUnavailable, onRoomsChanged, onClose, onSaved }: { editing: Plant | null; available: boolean; offline: boolean; rooms: Room[]; roomsUnavailable: boolean; onRoomsChanged: () => Promise<void>; onClose: () => void; onSaved: () => void }) {
+export function PlantDialog({ editing, available, offline, rooms, roomsUnavailable, onRoomsChanged, onClose, onSaved }: { editing: Plant | null; available: boolean; offline: boolean; rooms: Room[]; roomsUnavailable: boolean; onRoomsChanged: (change: RoomChange) => void; onClose: () => void; onSaved: () => void }) {
   const [managingRooms, setManagingRooms] = useState(false);
   const wasManaging = useRef(false);
   const [roomID, setRoomID] = useState(editing?.room_id ?? '');

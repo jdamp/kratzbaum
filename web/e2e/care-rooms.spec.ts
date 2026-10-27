@@ -109,7 +109,7 @@ test('starts individual care, previews photos, and manages rooms without losing 
   expect(detail.plant.room_id).toBe(living.id);
   expect(detail.plant.care_start_date).toBe('');
   expect(detail.activities.filter((a: { type: string }) => a.type === 'watering')).toHaveLength(1);
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await nav(page, 'Rooms').click();
   await page.getByRole('button', { name: `Rename ${prefix} Wohnzimmer`, exact: true }).click();
   await page.getByLabel('Rename room', { exact: true }).fill(`${prefix} Büro`);
   await page.getByRole('button', { name: 'Save room name' }).click();
@@ -117,7 +117,7 @@ test('starts individual care, previews photos, and manages rooms without losing 
   await nav(page, 'Today').click();
   await page.getByLabel('Filter by room').selectOption(living.id);
   await expect(row(page, 'Upcoming', plant.id, 'watering')).toBeVisible();
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await nav(page, 'Rooms').click();
   page.once('dialog', async dialog => { expect(dialog.message()).toContain('unassigned'); await dialog.accept(); });
   await page.getByRole('button', { name: `Delete ${prefix} Büro`, exact: true }).click();
   await expect(page.getByRole('button', { name: `Delete ${prefix} Büro`, exact: true })).toHaveCount(0);
@@ -146,7 +146,7 @@ test('filters cached room snapshots offline and distinguishes missing room data'
   await nav(page, 'Plants').click();
   await expect(page.getByRole('button', { name: new RegExp(assigned.name) })).toBeVisible();
   await expect(page.getByRole('button', { name: new RegExp(unassigned.name) })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await nav(page, 'Rooms').click();
   await expect(page.getByLabel('New room name')).toBeDisabled();
   await expect(page.getByRole('button', { name: `Delete ${room.name}` })).toBeDisabled();
   const deletedRoomReads = await page.evaluate(async () => {

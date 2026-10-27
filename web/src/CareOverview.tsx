@@ -6,12 +6,14 @@ import { CachedImage } from './PlantPhotos';
 type CareItem = DueCare | NotStartedCare;
 export type RecordCare = (plant: Plant, type: 'watering' | 'fertilizing' | 'note', note?: string, date?: string) => Promise<boolean>;
 
-export function CareRow({ item, onRecord, disabled }: { item: CareItem; onRecord?: () => void; disabled: boolean }) {
+export function CareRow({ item, onRecord, onOpen, disabled }: { item: CareItem; onRecord?: () => void; onOpen?: () => void; disabled: boolean }) {
   const description = 'due_date' in item
     ? item.days_until > 0 ? `in ${item.days_until} ${item.days_until === 1 ? 'day' : 'days'}` : item.days_overdue > 0 ? `${item.days_overdue} days overdue` : 'due today'
     : `Every ${item.interval_days} days · not started`;
   return <div className="care-row" data-plant-id={item.plant_id} data-care-type={item.type}>
-    <span className="care-photo">{item.photo_url ? <CachedImage src={item.photo_url} alt={`Photo of ${item.plant_name}`}/> : <span aria-hidden="true">🌿</span>}</span>
+    <a className="care-photo" href={`/plants/${item.plant_id}`} aria-label={`Open ${item.plant_name}`} onClick={event => {
+      if (onOpen && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onOpen(); }
+    }}>{item.photo_url ? <CachedImage src={item.photo_url} alt={`Photo of ${item.plant_name}`}/> : <span aria-hidden="true">🌿</span>}</a>
     <div className="care-copy"><b>{item.plant_name}</b><small><span className={'care-type ' + item.type} aria-hidden="true">{item.type === 'watering' ? '◒' : '✳'}</span> {activityLabels[item.type]} · {description}</small></div>
     {onRecord && <button className="soft-button" onClick={onRecord} disabled={disabled}>{item.type === 'watering' ? 'Watered' : 'Fertilized'}</button>}
   </div>;

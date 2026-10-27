@@ -30,4 +30,8 @@
 .offline-banner{padding:12px 14px;border:1px solid #d9d7bc;background:#f6f1d9;border-radius:12px;color:#625b36;font-size:13px;line-height:1.5}
 .care-entry-dialog input{width:100%}.quick-entry{min-width:0}.room-filter select:focus-visible,.modal select:focus-visible{outline:3px solid #94b58f;outline-offset:2px}
 .care-entry-dialog .icon-button{width:44px;height:44px;flex:none}
+.care-photo{color:inherit;text-decoration:none}.care-photo:hover{box-shadow:0 0 0 2px #94b58f}
+.room-success{font-size:13px;line-height:1.5;padding:12px 14px;border-radius:12px;background:var(--pale);color:var(--green)}
+.rooms-page .room-manager{max-width:none;margin:0;padding:0;border:0;background:transparent}.rooms-page .room-manager>form{padding:20px;background:var(--paper);border:1px solid var(--line);border-radius:16px;max-width:560px}.rooms-page .room-list li{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px}
+@media(max-width:849px){.bottom-nav{gap:0;justify-content:space-around}.bottom-nav button{flex:1;min-width:0}}
 @media(max-width:560px){.room-filter{max-width:none}.care-row{padding:12px;gap:10px}.care-photo{width:44px;height:52px}.care-row .soft-button{padding:9px 10px;font-size:12px}.room-manager{padding:16px}.room-actions{width:100%}.care-entry-dialog .modal-heading h2{font-size:22px}.modal select{font-size:14px}}
