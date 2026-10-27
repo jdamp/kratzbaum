@@ -64,7 +64,7 @@ Watering, fertilizing, photos, and notes SHALL each have a consistent distinct c
 - **THEN** the activity type and its completed/due status remain understandable from labels and other indicators
 
 ### Requirement: Accessible controls and states
-Controls SHALL support keyboard operation, visible focus, labelled form inputs, accessible error/loading feedback, and phone touch targets of at least 44 CSS pixels. Dialogs SHALL manage focus. Screens SHALL expose distinct empty, loading, error, offline, and unavailable-offline states.
+Controls SHALL support keyboard operation, visible focus, labelled form inputs, accessible error/loading feedback, and phone touch targets of at least 44 CSS pixels. Dialogs SHALL manage focus. Screens SHALL expose distinct empty, loading, error, offline, and unavailable-offline states. Room controls SHALL distinguish idle disabled actions from pending mutations: an empty-name Add room button SHALL NOT show a waiting cursor, and saving feedback SHALL be shown only while the mutation is pending. A valid name SHALL enable Add room when online, room data is available, and no mutation is pending.
 
 #### Scenario: Operate a care-entry dialog with a keyboard
 - **WHEN** a keyboard user opens, edits, submits, or closes a care-entry dialog
@@ -73,6 +73,15 @@ Controls SHALL support keyboard operation, visible focus, labelled form inputs, 
 #### Scenario: Select HEIC without native browser preview
 - **WHEN** a user selects a HEIC file in a browser that cannot preview it
 - **THEN** filename/progress feedback remains available until a backend-normalized preview or a useful error is shown
+
+#### Scenario: Empty room form is idle
+- **WHEN** the online room form has an empty name and no request is pending, including immediately after a successful creation
+- **THEN** Add room is disabled without a waiting cursor or Saving indicator
+- **AND** entering a valid room name enables Add room
+
+#### Scenario: Room save finishes
+- **WHEN** a room mutation succeeds or fails
+- **THEN** its pending indicators end and controls return to the appropriate enabled or idle disabled state without duplicate writes
 
 ### Requirement: Photo selection during plant creation
 The Add Plant interface SHALL offer a labelled optional photo picker for one JPG, PNG, WebP, or HEIC file, show the selected filename, and show a local preview when the browser can render it. Users SHALL be able to replace or remove the selection before saving without losing other form input. Preview failure SHALL NOT prevent submission of a supported file. Selecting a file SHALL NOT create a plant or upload it before submission. An explicit Identify species action SHALL allow sending that photo for identification before plant submission without attaching a catalogue photo. Cancelling before plant submission SHALL discard the local selection without creating a plant or attaching a catalogue photo; any previously requested identification SHALL NOT cause a subsequent catalogue save or upload.

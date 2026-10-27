@@ -19,8 +19,8 @@ export function CachedImage({ src, alt }: { src: string; alt: string }) {
 
 type Photo = { id: string; filename: string; created_at: string };
 
-export function PlantPhotos({ plant, available, offline, onChanged, onBusyChange }: {
-  plant: Plant; available: boolean; offline: boolean; onChanged: () => void; onBusyChange: (busy: boolean) => void;
+export function PlantPhotos({ plant, available, offline, disabled = false, onChanged, onBusyChange }: {
+  plant: Plant; available: boolean; offline: boolean; disabled?: boolean; onChanged: () => void; onBusyChange: (busy: boolean) => void;
 }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [source, setSource] = useState<File | string | null>(null);
@@ -45,7 +45,7 @@ export function PlantPhotos({ plant, available, offline, onChanged, onBusyChange
     await send(`/api/plants/${plant.id}`, { ...latest, scientific_name: candidate.scientific_name, common_name: candidate.common_names?.[0] || latest.common_name }, 'PUT');
     onChanged();
   };
-  const busy = uploading || identifying;
+  const busy = uploading || identifying || disabled;
   return <>
     <section aria-label="Species identification">
       <div ref={review} tabIndex={-1} className="identification-source">
@@ -55,7 +55,7 @@ export function PlantPhotos({ plant, available, offline, onChanged, onBusyChange
         }}/>
         <button type="button" className="secondary" disabled={busy || offline || !available} onClick={() => picker.current?.click()}>Choose identification photo</button>
         {source && <p className="muted">{typeof source === 'string' ? 'Selected saved gallery photo' : source.name}</p>}
-        <Identification source={source} plantID={plant.id} available={available} offline={offline} disabled={uploading} onConfirm={confirm} onBusyChange={busyChange}/>
+        <Identification source={source} plantID={plant.id} available={available} offline={offline} disabled={uploading || disabled} onConfirm={confirm} onBusyChange={busyChange}/>
       </div>
     </section>
     <section className="gallery">

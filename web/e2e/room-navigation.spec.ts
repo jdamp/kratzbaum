@@ -21,6 +21,7 @@ async function plant(request: APIRequestContext, name: string) {
 test('room saves settle and accept another room while an older collection read is stalled', async ({ page, request }) => {
   await page.goto('/rooms');
   await expect(page.getByLabel('New room name')).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Add room', exact: true })).toHaveCSS('cursor', 'not-allowed');
   const oldRooms = await (await request.get('/api/rooms')).json();
   const oldToday = await (await request.get('/api/today')).json();
   let release!: () => void, started!: () => void;
@@ -44,6 +45,8 @@ test('room saves settle and accept another room while an older collection read i
     await expect(page.getByLabel('New room name')).toBeEnabled();
     await expect(page.getByLabel('New room name')).toHaveValue('');
     await expect(page.getByRole('button', { name: 'Add room', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Add room', exact: true })).toHaveCSS('cursor', 'not-allowed');
+    await expect(page.locator('.room-success')).toHaveText(`Room “${name}” saved.`);
   }
   expect(writes).toBe(2);
   // A rejected write keeps its input and releases the same lock.

@@ -4,6 +4,7 @@ import { ApiError, get, send, setRequestContext, clearLocalCollection, finishPen
 import type { Activity, ActivityType, Bootstrap, Plant, TodayResponse, DueCare, Room } from './api';
 import './styles.css';
 import { PlantDialog } from './PlantDialog';
+import { PlantRoom } from './PlantRoom';
 import { CachedImage, PlantPhotos } from './PlantPhotos';
 import { useOnline } from './Identification';
 import { LoginPage } from './LoginPage';
@@ -18,6 +19,7 @@ const todayISO=()=>new Date().toISOString().slice(0,10);
 function App() {
  const online = useOnline();
  const [speciesBusy,setSpeciesBusy] = useState(false);
+ const [roomBusy,setRoomBusy] = useState(false);
  const [plants,setPlants] = useState<Plant[]>([]);
  const [today,setToday] = useState<TodayResponse|null>(null);
  const [rooms,setRooms] = useState<Room[]>([]);
@@ -38,9 +40,11 @@ function App() {
  const [month,setMonth] = useState(new URLSearchParams(location.search).get('month')||todayISO().slice(0,7));
  const pendingRecords = useRef(new Set<string>());
  const loadVersion = useRef(0);
+ const detailVersion = useRef(0);
  const accessEpoch = useRef(0);
  const identity = useRef('');
  const resetCollection = () => {
+  detailVersion.current++;setRoomBusy(false);
   setPlants([]);setToday(null);setRooms([]);setRoomsUnavailable(true);setSelectedRoom('all');
   setPlant(null);setActivities([]);setDialog(false);setEditing(null);setCareEntry(null);setQuery('');setSpeciesBusy(false);
  };
@@ -92,10 +96,10 @@ function App() {
   if(!boot?.authenticated)return;
   const match=location.pathname.match(/^\/plants\/([a-f0-9-]{36})$/);
   if(!match)return;
-  const epoch=accessEpoch.current;
+  const epoch=accessEpoch.current, version=++detailVersion.current;
   get<{plant:Plant;activities:Activity[]}>('/api/plants/'+match[1]).then(data=>{
-   if(epoch===accessEpoch.current){setPlant(data.plant);setActivities(data.activities);}
-  }).catch(e=>{if(epoch===accessEpoch.current)setError(e instanceof Error?e.message:'Plant could not be loaded');});
+   if(epoch===accessEpoch.current&&version===detailVersion.current){setPlant(data.plant);setActivities(data.activities);}
+  }).catch(e=>{if(epoch===accessEpoch.current&&version===detailVersion.current)setError(e instanceof Error?e.message:'Plant could not be loaded');});
  },[boot?.authenticated]);
  useEffect(()=>{const reconnect=()=>{void refresh();};window.addEventListener('online',reconnect);return()=>window.removeEventListener('online',reconnect);},[]);
  useEffect(()=>{
@@ -120,13 +124,21 @@ function App() {
   setEditing(current=>current?unassign(current):null);
   setToday(current=>current?{...current,due:current.due.map(unassign),next:current.next.map(unassign),not_started:current.not_started.map(unassign)}:current);
  };
- const openPlant=async(p:Plant)=>{
-  const epoch=accessEpoch.current;
-  setPlant(p);setActivityFilter('all');setTab('plants');history.pushState({},'','/plants/'+p.id);
-  try{const data=await get<{plant:Plant;activities:Activity[]}>('/api/plants/'+p.id);if(epoch===accessEpoch.current){setPlant(data.plant);setActivities(data.activities);}}
-  catch(e){if(epoch===accessEpoch.current)setError(String(e));}
+ const applyPlantRoom=(saved:Plant)=>{
+  if(roomEpoch!==accessEpoch.current)return;
+  loadVersion.current++;setLoading(false);
+  const assign=<T extends {room_id?:string|null}>(item:T):T=>({...item,room_id:saved.room_id??null});
+  setPlants(current=>current.map(item=>item.id===saved.id?assign(item):item));
+  setToday(current=>current?{...current,due:current.due.map(item=>item.plant_id===saved.id?assign(item):item),next:current.next.map(item=>item.plant_id===saved.id?assign(item):item),not_started:current.not_started.map(item=>item.plant_id===saved.id?assign(item):item)}:current);
+  if(location.pathname==='/plants/'+saved.id){detailVersion.current++;setPlant(current=>current?.id===saved.id?assign(current):current);}
  };
- const nav=(destination:Tab)=>{setPlant(null);setTab(destination);history.pushState({},'',destination==='today'?'/':'/'+destination);};
+ const openPlant=async(p:Plant)=>{
+  const epoch=accessEpoch.current, version=++detailVersion.current;
+  setPlant(p);setActivityFilter('all');setTab('plants');history.pushState({},'','/plants/'+p.id);
+  try{const data=await get<{plant:Plant;activities:Activity[]}>('/api/plants/'+p.id);if(epoch===accessEpoch.current&&version===detailVersion.current){setPlant(data.plant);setActivities(data.activities);}}
+  catch(e){if(epoch===accessEpoch.current&&version===detailVersion.current)setError(String(e));}
+ };
+ const nav=(destination:Tab)=>{detailVersion.current++;setPlant(null);setTab(destination);history.pushState({},'',destination==='today'?'/':'/'+destination);};
  const record=async(p:Plant,type:'watering'|'fertilizing'|'note',note='',occurredAt?:string):Promise<boolean>=>{
   const key=p.id+':'+type;
   if(pendingRecords.current.has(key))return false;
@@ -173,7 +185,7 @@ function App() {
     <label className="search">⌕ <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search plants or species" aria-label="Search plants"/></label>
     {visiblePlants.length?<Grid plants={visiblePlants} open={openPlant} roomName={roomName}/>:plants.length?<div className="empty-card"><b>No plants match this selection</b><p>Try another room or search.</p><button className="text-button" onClick={()=>{setQuery('');setSelectedRoom('all');}}>Clear filters</button></div>:<div className="empty-card"><span>🪴</span><b>Your collection is waiting</b><p>Add a plant and keep its care in one place.</p><button className="primary" disabled={offline} onClick={()=>{setEditing(null);setDialog(true);}}>＋ Add your first plant</button></div>}
    </>}
-   {tab==='plants'&&plant&&<section><button className="text-button" onClick={()=>{setPlant(null);history.pushState({},'','/plants')}}>← All plants</button><div className="detail-hero"><span>🌿</span><div><h2>{speciesURL?<a className="species-reference" href={speciesURL} target="_blank" rel="noopener noreferrer" aria-label={`${plant.scientific_name.trim()} on Wikipedia (opens in a new tab)`}>{plant.scientific_name.trim()} <span aria-hidden="true">↗</span></a>:plant.common_name||'Species not set'}</h2><p>{plant.family||'Plant family not set'}</p></div></div><p className="muted">Room: {roomName(plant.room_id)}</p><PlantPhotos key={plant.id} plant={plant} available={boot.plantnet_available} offline={!online||boot.offline} onBusyChange={setSpeciesBusy} onChanged={()=>{void refresh();void openPlant(plant)}}/><button className="secondary" disabled={speciesBusy||offline} onClick={()=>{setEditing(plant);setDialog(true)}}>Edit plant and care schedule</button><div className="schedule-cards"><div><small>WATERING</small><b>Every {plant.watering_interval_days} days</b></div><div><small>FERTILIZE · SUMMER</small><b>{plant.summer_fertilizing_interval_days?`Every ${plant.summer_fertilizing_interval_days} days`:'Not set'}</b></div><div><small>FERTILIZE · WINTER</small><b>{plant.winter_fertilizing_interval_days?`Every ${plant.winter_fertilizing_interval_days} days`:'Not set'}</b></div></div><div className="quick-actions"><QuickEntry offline={offline} plant={plant} type="watering" record={record}/><QuickEntry offline={offline} plant={plant} type="fertilizing" record={record}/></div><NoteForm offline={offline} save={note=>record(plant,'note',note)}/><h2 className="section-title">Timeline <span>{activities.length}</span></h2><div className="activity-filters">{(['all','watering','fertilizing','photo','note'] as const).map(kind=><button key={kind} aria-pressed={activityFilter===kind} onClick={()=>setActivityFilter(kind)}>{kind==='all'?'All':activityLabels[kind]}</button>)}</div>{activities.filter(a=>activityFilter==='all'||a.type===activityFilter).map(a=><ActivityRow key={a.id} activity={a} offline={offline} onChanged={()=>{void refresh();void openPlant(plant);setRevision(value=>value+1)}}/>)}</section>}
+   {tab==='plants'&&plant&&<section><button className="text-button" onClick={()=>{detailVersion.current++;setPlant(null);history.pushState({},'','/plants')}}>← All plants</button><div className="detail-hero"><span>🌿</span><div><h2>{speciesURL?<a className="species-reference" href={speciesURL} target="_blank" rel="noopener noreferrer" aria-label={`${plant.scientific_name.trim()} on Wikipedia (opens in a new tab)`}>{plant.scientific_name.trim()} <span aria-hidden="true">↗</span></a>:plant.common_name||'Species not set'}</h2><p>{plant.family||'Plant family not set'}</p></div></div><p className="muted">Room: {roomName(plant.room_id)}</p><PlantRoom key={plant.id} plant={plant} rooms={rooms} offline={offline} unavailable={roomsUnavailable} disabled={speciesBusy||dialog} onBusyChange={setRoomBusy} onSaveStart={()=>{detailVersion.current++;}} onSaved={applyPlantRoom}/><PlantPhotos key={plant.id} plant={plant} disabled={roomBusy} available={boot.plantnet_available} offline={!online||boot.offline} onBusyChange={setSpeciesBusy} onChanged={()=>{void refresh();void openPlant(plant)}}/><button className="secondary" disabled={speciesBusy||roomBusy||offline} onClick={()=>{setEditing(plant);setDialog(true)}}>Edit plant and care schedule</button><div className="schedule-cards"><div><small>WATERING</small><b>Every {plant.watering_interval_days} days</b></div><div><small>FERTILIZE · SUMMER</small><b>{plant.summer_fertilizing_interval_days?`Every ${plant.summer_fertilizing_interval_days} days`:'Not set'}</b></div><div><small>FERTILIZE · WINTER</small><b>{plant.winter_fertilizing_interval_days?`Every ${plant.winter_fertilizing_interval_days} days`:'Not set'}</b></div></div><div className="quick-actions"><QuickEntry offline={offline} plant={plant} type="watering" record={record}/><QuickEntry offline={offline} plant={plant} type="fertilizing" record={record}/></div><NoteForm offline={offline} save={note=>record(plant,'note',note)}/><h2 className="section-title">Timeline <span>{activities.length}</span></h2><div className="activity-filters">{(['all','watering','fertilizing','photo','note'] as const).map(kind=><button key={kind} aria-pressed={activityFilter===kind} onClick={()=>setActivityFilter(kind)}>{kind==='all'?'All':activityLabels[kind]}</button>)}</div>{activities.filter(a=>activityFilter==='all'||a.type===activityFilter).map(a=><ActivityRow key={a.id} activity={a} offline={offline} onChanged={()=>{void refresh();void openPlant(plant);setRevision(value=>value+1)}}/>)}</section>}
 
    {tab==='calendar'&&<Calendar key={revision} plants={plants} month={month} change={setMonth}/>}
    {tab==='rooms'&&<div className="rooms-page"><RoomManager rooms={rooms} offline={offline} unavailable={roomsUnavailable} onChanged={applyRoomChange}/></div>}

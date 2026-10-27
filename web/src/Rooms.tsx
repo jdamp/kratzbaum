@@ -30,13 +30,13 @@ export function RoomManager({ rooms, offline, unavailable, onChanged }: { rooms:
   const pending = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const mutate = async (operation: () => Promise<RoomChange>, saved: () => void) => {
-    if (pending.current || offline) return;
+    if (pending.current || offline || unavailable) return;
     pending.current = true; setBusy(true); setError(''); setStatus('');
     try {
       const change = await operation();
       onChanged(change);
       saved();
-      setStatus(change.type === 'saved' ? `Room “${change.room.name}” saved. Enter another name to add a room.` : 'Room deleted. Its plants are now unassigned.');
+      setStatus(change.type === 'saved' ? `Room “${change.room.name}” saved.` : 'Room deleted. Its plants are now unassigned.');
     }
     catch (e) { setError(e instanceof Error ? e.message : 'Could not save room changes'); }
     finally { pending.current = false; setBusy(false); }
@@ -54,7 +54,7 @@ export function RoomManager({ rooms, offline, unavailable, onChanged }: { rooms:
     }}>
       <label>{editing ? 'Rename room' : 'New room name'}<input ref={input} required maxLength={120} value={name} onChange={e => setName(e.target.value)} disabled={busy || offline || unavailable}/></label>
       <div className="room-actions">
-        <button className="primary" disabled={busy || offline || unavailable || !name.trim()}>{busy ? 'Saving…' : editing ? 'Save room name' : 'Add room'}</button>
+        <button className="primary" aria-busy={busy} disabled={busy || offline || unavailable || !name.trim()}>{busy ? 'Saving…' : editing ? 'Save room name' : 'Add room'}</button>
         {editing && <button type="button" className="secondary" disabled={busy} onClick={() => { setEditing(null); setName(''); setError(''); }}>Cancel rename</button>}
       </div>
     </form>
