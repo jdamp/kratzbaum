@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"image/jpeg"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -131,6 +133,21 @@ func (s *Server) runIdentification(w http.ResponseWriter, r *http.Request, image
 	if err != nil {
 		code = identification.ErrorCode(err)
 		status = "failed"
+		attrs := []any{"attempt_id", attempt.ID, "failure_code", code}
+		var failure identification.Failure
+		if errors.As(err, &failure) {
+			if failure.Status != 0 {
+				attrs = append(attrs, "upstream_status", failure.Status)
+			}
+			if failure.Transport != "" {
+				attrs = append(attrs, "transport", failure.Transport)
+			}
+		}
+		if code == "plantnet_no_match" {
+			slog.Info("PlantNet identification failed", attrs...)
+		} else {
+			slog.Warn("PlantNet identification failed", attrs...)
+		}
 		if code == "plantnet_no_match" {
 			status = "no_match"
 		}

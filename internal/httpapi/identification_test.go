@@ -3,10 +3,14 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
+	"log"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -186,11 +190,21 @@ func TestIdentificationValidationAndFailureStates(t *testing.T) {
 		response, code string
 	}{
 		{"no match", 200, `{"results":[]}`, "plantnet_no_match"},
-		{"quota", 429, "", "plantnet_quota"},
+		{"quota", 429, "provider-body private-identification-key", "plantnet_quota"},
+		{"rejected query", 400, "provider-body private-identification-key", "plantnet_request_rejected"},
+		{"rejected input", 422, "provider-body private-identification-key", "plantnet_request_rejected"},
+		{"unauthorized", 401, "provider-body private-identification-key", "plantnet_auth"},
+		{"forbidden", 403, "provider-body private-identification-key", "plantnet_auth"},
+		{"no match status", 404, "provider-body private-identification-key", "plantnet_no_match"},
+		{"invalid response", 200, "provider-body private-identification-key", "plantnet_invalid_response"},
 		{"unavailable", 502, "private-identification-key", "plantnet_unavailable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var calls atomic.Int32
+			var logs bytes.Buffer
+			previous := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+			defer slog.SetDefault(previous)
 			s, api := identificationFixture(t, func(w http.ResponseWriter, r *http.Request) {
 				calls.Add(1)
 				w.WriteHeader(tc.status)
@@ -205,7 +219,25 @@ func TestIdentificationValidationAndFailureStates(t *testing.T) {
 			if result.Code != 200 || !strings.Contains(result.Body.String(), tc.code) || strings.Contains(result.Body.String(), "private-identification-key") {
 				t.Fatalf("failure result: %d %s", result.Code, result.Body)
 			}
-			_ = identificationRequest(api, "/api/identifications", "failure-attempt-key", "leaf.png", data)
+			logBefore := logs.String()
+			replayed := identificationRequest(api, "/api/identifications", "failure-attempt-key", "leaf.png", data)
+			if replayed.Body.String() != result.Body.String() || logs.String() != logBefore {
+				t.Fatal("replayed result or diagnostics differ")
+			}
+			var event map[string]any
+			if err := json.Unmarshal(logs.Bytes(), &event); err != nil {
+				t.Fatalf("expected one structured event: %v", err)
+			}
+			var response map[string]any
+			_ = json.Unmarshal(result.Body.Bytes(), &response)
+			if event["attempt_id"] != response["attempt_id"] || event["failure_code"] != tc.code || event["upstream_status"] != float64(tc.status) {
+				t.Fatalf("missing diagnostics: %v", event)
+			}
+			for _, private := range []string{"private-identification-key", "provider-body", "api-key=", "http://", "failure-attempt-key", fmt.Sprint(data)} {
+				if strings.Contains(logs.String()+result.Body.String(), private) {
+					t.Fatal("private data in logs or response")
+				}
+			}
 			if calls.Load() != 1 {
 				t.Fatal("failure replayed upstream")
 			}
@@ -267,5 +299,45 @@ func TestDraftIdentificationNormalizesSupportedFormats(t *testing.T) {
 	}
 	if calls.Load() != 4 {
 		t.Fatalf("format requests=%d", calls.Load())
+	}
+}
+
+func TestIdentificationTransportFailureLogsAreSafe(t *testing.T) {
+	for _, category := range []string{"connection", "tls"} {
+		t.Run(category, func(t *testing.T) {
+			var logs bytes.Buffer
+			previous := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+			defer slog.SetDefault(previous)
+			s, api := identificationFixture(t, func(w http.ResponseWriter, _ *http.Request) { t.Error("unexpected provider request") })
+			if category == "connection" {
+				closed := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+				s.Config.PlantNetURL = closed.URL
+				closed.Close()
+			} else {
+				untrusted := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Error("unexpected TLS request") }))
+				defer untrusted.Close()
+				untrusted.Config.ErrorLog = log.New(io.Discard, "", 0)
+				s.Config.PlantNetURL = untrusted.URL
+			}
+			result := identificationRequest(api, "/api/identifications", "transport-attempt", "leaf.png", identificationPNG(t))
+			var event map[string]any
+			if err := json.Unmarshal(logs.Bytes(), &event); err != nil {
+				t.Fatal(err)
+			}
+			var response map[string]any
+			_ = json.Unmarshal(result.Body.Bytes(), &response)
+			if event["transport"] != category || event["failure_code"] != "plantnet_unavailable" || event["attempt_id"] != response["attempt_id"] {
+				t.Fatalf("unexpected diagnostics: %v", event)
+			}
+			if _, ok := event["upstream_status"]; ok {
+				t.Fatal("transport failure has an HTTP status")
+			}
+			for _, secret := range []string{s.Config.PlantNetKey, s.Config.PlantNetURL, "transport-attempt", "api-key="} {
+				if strings.Contains(logs.String()+result.Body.String(), secret) {
+					t.Fatal("unsafe diagnostics")
+				}
+			}
+		})
 	}
 }

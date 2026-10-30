@@ -16,16 +16,19 @@ export function useOnline() {
   return online;
 }
 
-export function Identification({ source, plantID, available, offline, disabled = false, onConfirm, onBusyChange }: {
-  source: Source;
+type IdentificationOptions = {
+  source?: Source;
   plantID?: string;
   available: boolean;
   offline: boolean;
   disabled?: boolean;
   onConfirm: (candidate: SpeciesCandidate) => void | Promise<void>;
   onBusyChange?: (busy: boolean) => void;
-}) {
-  const group = useId();
+};
+
+export function useIdentification({ source: inputSource, plantID, available, offline, disabled = false, onConfirm, onBusyChange }: IdentificationOptions) {
+  const [selectedSource, setSelectedSource] = useState<Source>(null);
+  const source = inputSource === undefined ? selectedSource : inputSource;
   const [phase, setPhase] = useState<'idle' | 'identifying' | 'saving'>('idle');
   const [error, setError] = useState('');
   const [results, setResults] = useState<{ source: Source; candidates: SpeciesCandidate[] } | null>(null);
@@ -38,16 +41,21 @@ export function Identification({ source, plantID, available, offline, disabled =
   useEffect(() => {
     generation.current++;
     pending.current = false;
-    setPhase('idle'); setResults(null); setChosen(null); setError(''); onBusyChange?.(false);
-    return () => { generation.current++; };
-  }, [source, plantID, onBusyChange]);
+    setPhase('idle'); setResults(null); setChosen(null); setError('');
+    if (inputSource === undefined) setSelectedSource(null);
+    onBusyChange?.(false);
+    return () => { generation.current++; onBusyChange?.(false); };
+  }, [inputSource, plantID, onBusyChange]);
   const unavailable = !available ? 'Species identification is not configured. You can enter the scientific name manually.' : offline ? 'Species identification is unavailable offline. Reconnect to identify.' : '';
   const candidates = results?.source === source ? results.candidates : [];
   const locked = disabled || !!unavailable;
   const active = (token: number, startedSource: Source, startedPlant: string | undefined) =>
     token === generation.current && current.current.source === startedSource && current.current.plantID === startedPlant;
-  const identify = async () => {
-    if (!source || pending.current || locked) return;
+  const start = async (nextSource: Source = source) => {
+    if (!nextSource || pending.current || locked) return;
+    const source = nextSource;
+    current.current = { source, plantID };
+    if (inputSource === undefined) setSelectedSource(source);
     pending.current = true;
     onBusyChange?.(true);
     const token = ++generation.current;
@@ -83,8 +91,28 @@ export function Identification({ source, plantID, available, offline, disabled =
       if (active(token, startedSource, startedPlant)) { pending.current = false; setPhase('idle'); onBusyChange?.(false); }
     }
   };
+  const cancel = () => {
+    generation.current++;
+    pending.current = false;
+    setPhase('idle'); setResults(null); setChosen(null); setError('');
+    if (inputSource === undefined) { setSelectedSource(null); current.current.source = null; }
+    onBusyChange?.(false);
+  };
+  return { source, plantID, phase, busy, locked, unavailable, error, candidates, chosen, choose: setChosen, start, confirm, cancel };
+}
+
+type Controller = ReturnType<typeof useIdentification>;
+
+export function Identification(options: IdentificationOptions & { source: Source }) {
+  const controller = useIdentification(options);
+  return <IdentificationReview controller={controller} showStart/>;
+}
+
+export function IdentificationReview({ controller, showStart = false }: { controller: Controller; showStart?: boolean }) {
+  const group = useId();
+  const { source, plantID, phase, busy, locked, unavailable, error, candidates, chosen, choose, start, confirm, cancel } = controller;
   return <div className="identify-control" aria-busy={busy}>
-    <button type="button" className="secondary" disabled={!source || busy || locked} onClick={() => void identify()}>Identify species</button>
+    {showStart && <button type="button" className="secondary" disabled={!source || busy || locked} onClick={() => void start()}>Identify species</button>}
     {unavailable && <p className="muted">{unavailable}</p>}
     {busy && <p role="status">{phase === 'identifying' ? 'Identifying species…' : plantID ? 'Saving species…' : 'Applying species to draft…'}</p>}
     {error && <p role="alert">{error}</p>}
@@ -93,13 +121,13 @@ export function Identification({ source, plantID, available, offline, disabled =
       <p className="muted">{plantID ? 'Your plant details change only after you confirm a species.' : 'Confirm a species to fill this draft. Add plant saves it separately.'}</p>
       <div role="radiogroup" aria-labelledby={group + '-title'}>
         {candidates.map((c, i) => <label className="candidate" key={i}>
-          <input type="radio" name={group} checked={chosen === c} disabled={busy || locked} onChange={() => setChosen(c)}/>
+          <input type="radio" name={group} checked={chosen === c} disabled={busy || locked} onChange={() => choose(c)}/>
           <span><b>{c.scientific_name}</b><small>{c.common_names?.join(', ') || 'Scientific name'}</small></span>
           <small>{Math.round(c.score * 100)}%</small>
         </label>)}
       </div>
       <div className="modal-actions">
-        <button type="button" className="secondary" disabled={busy} onClick={() => { setResults(null); setChosen(null); setError(''); }}>Cancel identification</button>
+        <button type="button" className="secondary" disabled={busy} onClick={cancel}>Cancel identification</button>
         <button type="button" className="primary" disabled={!chosen || !candidates.includes(chosen) || busy || locked} onClick={() => void confirm()}>Confirm species</button>
       </div>
     </div>}

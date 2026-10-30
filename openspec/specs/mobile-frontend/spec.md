@@ -183,7 +183,7 @@ Signed-out OIDC visitors SHALL see a standalone branded `/login` page with a cle
 - **THEN** the existing offline collection experience remains available
 
 ### Requirement: Shared identification review controls
-Add Plant and existing plant detail SHALL expose explicit Identify species controls and a consistent review of ranked scientific names, available common names, and confidence scores. Existing plant detail SHALL offer identification from a saved gallery photo or a newly selected file. Confirmation SHALL require a current candidate selection. Identification progress and species-save progress SHALL be announced accessibly and SHALL prevent duplicate submissions and conflicting save actions. The interface SHALL explain unavailable configuration, no match, invalid input, timeout, quota exhaustion, and connectivity failure while retaining recoverable input. Identification SHALL be visibly unavailable without a configured integration or while offline, with manual species entry remaining available online. No failed request SHALL be queued or automatically retried. Controls SHALL support keyboard use and fit a 320 CSS-pixel viewport.
+Add Plant SHALL retain its explicit Identify species action for the selected creation photo. Existing plant detail SHALL start identification directly when the user activates Identify this photo on a saved gallery image, without a second start action. Existing plant detail SHALL NOT display Choose identification photo, an identification-only file picker, or a standalone Identify species button. Both flows SHALL provide a consistent review of ranked scientific names, available common names, and confidence scores. Merely opening plant detail, rendering a gallery, or uploading a photo SHALL NOT start identification. Confirmation SHALL require a current candidate selection. Identification progress and species-save progress SHALL be announced accessibly and SHALL prevent duplicate submissions and conflicting save actions. The interface SHALL explain unavailable configuration, no match, invalid input, timeout, quota exhaustion, rejected credentials, rejected provider requests, and connectivity failure while retaining recoverable input. Identification SHALL be visibly unavailable without a configured integration or while offline, with manual species entry remaining available online. No failed request SHALL be queued or automatically retried. Controls SHALL support keyboard use and fit a 320 CSS-pixel viewport.
 
 #### Scenario: No photo selected during creation
 - **WHEN** a user opens Add Plant without selecting a photograph
@@ -208,6 +208,21 @@ Add Plant and existing plant detail SHALL expose explicit Identify species contr
 #### Scenario: Keyboard and mobile review
 - **WHEN** a user reviews suggestions with a keyboard or at a 320 CSS-pixel viewport
 - **THEN** source selection, candidate selection, confirmation, cancellation, and feedback remain accessible without horizontal page scrolling
+
+#### Scenario: Identify a gallery image directly
+- **WHEN** a user activates Identify this photo on a saved gallery image
+- **THEN** one identification attempt starts for that image without requiring Identify species
+- **AND** progress and results are associated visibly with the selected image and review is reachable by keyboard
+- **AND** saved species information changes only after candidate selection and confirmation
+
+#### Scenario: Existing detail has no redundant identification controls
+- **WHEN** a user opens existing plant detail with or without gallery photos
+- **THEN** Choose identification photo, the identification-only file picker, and the standalone Identify species action are absent
+- **AND** Add photo remains available online and no identification starts without a gallery action
+
+#### Scenario: Retry the same gallery image
+- **WHEN** an attempt has failed or its results were cancelled and the user activates Identify this photo on the same image again
+- **THEN** a new explicit attempt starts and previous unconfirmed results cannot be applied
 
 ### Requirement: Optional care start input
 The add/edit plant form SHALL allow a blank care start date while retaining valid care intervals. New-plant forms SHALL default this date to blank and explain that schedules start when actual watering or fertilizing is recorded unless an optional fallback date is supplied. Editing SHALL show the saved value and allow clearing it without deleting activities. Creation recovery and plant detail SHALL represent absent care dates without displaying an invalid or fabricated date.

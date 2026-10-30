@@ -149,9 +149,14 @@ test('uses saved gallery photos without attaching another photo and retries only
   const photos = await (await page.request.get(`/api/plants/${plant.id}/photos`)).json();
   let calls = 0, saves = 0;
   await page.route(`**/api/plants/${plant.id}/photos/${photos.photos[0].id}/identify`, route => { calls++; expect(route.request().postData()).toBeNull(); return route.fulfill({ json: success }); });
-  await page.getByRole('button', { name: 'Identify this photo' }).click();
+  await expect(page.getByRole('button', { name: 'Choose identification photo' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Identify species', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Photo for species identification')).toHaveCount(0);
   expect(calls).toBe(0);
-  await page.getByRole('button', { name: 'Identify species', exact: true }).click();
+  const identify = page.getByRole('button', { name: 'Identify this photo' });
+  await identify.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByRole('region', { name: 'Species identification' })).toBeFocused();
+  await expect.poll(() => calls).toBe(1);
   await page.getByRole('radio').first().check();
   // Simulate another editor changing unrelated fields while suggestions are open.
   await page.request.put(`/api/plants/${plant.id}`, { data: { ...before.plant, notes: 'Latest notes', watering_interval_days: 12 } });
@@ -171,23 +176,83 @@ test('uses saved gallery photos without attaching another photo and retries only
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('existing-file selection stays local and switching plants ignores pending suggestions', async ({ page }) => {
-  const first = await savedPlant(page, false);
+test('gallery actions prevent duplicates and ignore pending suggestions after navigation', async ({ page }) => {
+  const first = await savedPlant(page);
   let calls = 0, release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route(`**/api/plants/${first.id}/photos/identify`, async route => { calls++; await gate; await route.fulfill({ json: success }); });
-  await page.getByLabel('Photo for species identification').setInputFiles('/tmp/plant.jpg');
-  expect(calls).toBe(0);
-  await page.getByRole('button', { name: 'Identify species', exact: true }).click();
-  await expect(page.getByText('Identifying species…')).toBeVisible();
+  await page.route('**/api/plants/*/photos/*/identify', async route => { calls++; await gate; await route.fulfill({ json: success }); });
+  const identify = page.getByRole('button', { name: 'Identify this photo' });
+  await identify.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+  await expect(page.getByRole('status')).toHaveText('Identifying species…');
+  await expect(identify).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Delete photo' })).toBeDisabled();
+  await expect(page.locator('.gallery .section-title input')).toBeDisabled();
+  await expect.poll(() => calls).toBe(1);
   await page.getByRole('button', { name: 'All plants' }).click();
   await page.getByRole('button', { name: new RegExp(first.name) }).click();
   release();
   await expect(page.getByRole('heading', { name: 'Review suggestions' })).toHaveCount(0);
-  const result = await (await page.request.get(`/api/plants/${first.id}`)).json();
+  const result = await (await page.request.get('/api/plants/' + first.id)).json();
   expect(result.plant.scientific_name).toBe('Original species');
-  const photos = await (await page.request.get(`/api/plants/${first.id}/photos`)).json();
-  expect(photos.photos).toHaveLength(0);
+  expect(calls).toBe(1);
+});
+
+test('retries the same gallery photo explicitly and clears selection when changing photos', async ({ page }) => {
+  const plant = await savedPlant(page);
+  let calls = 0;
+  const sources: string[] = [], keys: string[] = [];
+  await page.route('**/api/plants/*/photos/*/identify', async route => {
+    calls++; sources.push(new URL(route.request().url()).pathname); keys.push(route.request().headers()['idempotency-key']);
+    await route.fulfill({ json: calls === 1 ? { status: 'failed', error: 'PlantNet rejected the identification request' } : success });
+  });
+  const addPhoto = page.locator('.gallery .section-title input');
+  await addPhoto.setInputFiles('/tmp/plant.jpg');
+  await expect(page.getByRole('button', { name: 'Identify this photo' })).toHaveCount(2);
+  expect(calls).toBe(0);
+  const first = page.getByRole('article', { name: 'Gallery photo 1', exact: true }).getByRole('button', { name: 'Identify this photo' });
+  await first.click();
+  await expect(page.getByRole('alert')).toHaveText('PlantNet rejected the identification request');
+  expect(calls).toBe(1);
+  await first.click();
+  await page.getByRole('radio').first().check();
+  await page.getByRole('button', { name: 'Cancel identification' }).click();
+  await expect(first).toBeFocused();
+  await expect(page.getByRole('region', { name: 'Species identification' })).toHaveCount(0);
+  await first.click();
+  await expect(page.getByRole('button', { name: 'Confirm species' })).toBeDisabled();
+  await page.getByRole('radio').first().check();
+  await page.getByRole('article', { name: 'Gallery photo 2', exact: true }).getByRole('button', { name: 'Identify this photo' }).click();
+  await expect(page.getByText('Identifying gallery photo 2')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirm species' })).toBeDisabled();
+  expect(calls).toBe(4);
+  expect(sources[0]).toBe(sources[1]); expect(sources[1]).toBe(sources[2]); expect(sources[3]).not.toBe(sources[2]);
+  expect(new Set(keys).size).toBe(4);
+  const result = await (await page.request.get('/api/plants/' + plant.id)).json();
+  expect(result.plant.scientific_name).toBe('Original species');
+  expect(result.activities.filter((a: { type: string }) => a.type === 'photo')).toHaveLength(2);
+});
+
+test('gallery identification explains offline and missing configuration even without photos', async ({ page, context }) => {
+  await savedPlant(page, false);
+  await expect(page.getByRole('button', { name: 'Identify this photo' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Identify species', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Choose identification photo' })).toHaveCount(0);
+  await expect(page.locator('.gallery .section-title input')).toBeEnabled();
+  await page.locator('.gallery .section-title input').setInputFiles('/tmp/plant.jpg');
+  await expect(page.getByRole('button', { name: 'Identify this photo' })).toBeVisible();
+  await context.setOffline(true);
+  await expect(page.getByText(/identification is unavailable offline/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Identify this photo' })).toBeDisabled();
+  await context.setOffline(false);
+  await page.unroute('**/api/bootstrap');
+  await page.route('**/api/bootstrap', async route => { const response = await route.fetch(); await route.fulfill({ response, json: { ...await response.json(), plantnet_available: false } }); });
+  await page.reload();
+  await expect(page.getByText(/identification is not configured/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Identify this photo' })).toBeDisabled();
+  await expect(page.locator('.gallery .section-title input')).toBeEnabled();
+  await savedPlant(page, false);
+  await expect(page.getByText(/identification is not configured/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Identify this photo' })).toHaveCount(0);
 });
 
 for (const failure of [

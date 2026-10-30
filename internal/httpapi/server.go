@@ -17,6 +17,7 @@ import (
 	"github.com/kratzbaum/kratzbaum/internal/auth"
 	"github.com/kratzbaum/kratzbaum/internal/care"
 	"github.com/kratzbaum/kratzbaum/internal/config"
+	"github.com/kratzbaum/kratzbaum/internal/identification"
 	"github.com/kratzbaum/kratzbaum/internal/media"
 	"github.com/kratzbaum/kratzbaum/internal/storage"
 )
@@ -297,20 +298,8 @@ func (s *Server) photos(w http.ResponseWriter, r *http.Request) {
 func failCode(w http.ResponseWriter, status int, code, message string) {
 	jsonOut(w, status, map[string]string{"error": message, "code": code})
 }
-func identificationMessage(code string) string {
-	switch code {
-	case "plantnet_not_configured":
-		return "PlantNet identification is not configured"
-	case "plantnet_no_match":
-		return "PlantNet found no likely species"
-	case "plantnet_quota":
-		return "PlantNet quota is exhausted"
-	case "plantnet_timeout":
-		return "PlantNet did not respond in time"
-	default:
-		return "PlantNet service is unavailable"
-	}
-}
+func identificationMessage(code string) string { return identification.Message(code) }
+
 func writeMedia(path string, data []byte) error {
 	f, err := os.CreateTemp(filepath.Dir(path), ".stage-*.tmp")
 	if err != nil {

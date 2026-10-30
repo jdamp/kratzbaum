@@ -127,23 +127,23 @@ test('identification is one-shot and species changes only after confirmation', a
   const name = `PW identify ${Date.now()}`;
   const plant = await addPlant(page, name);
   await page.getByRole('button', { name: new RegExp(name) }).click();
-  const identifyInput = page.getByLabel('Photo for species identification');
-  expect(await identifyInput.getAttribute('accept')).toContain('.heic');
-  await page.route(`**/api/plants/${plant.id}/photos/identify`, route => route.fulfill({
+  const photoInput = page.locator('.gallery .section-title input');
+  expect(await photoInput.getAttribute('accept')).toContain('.heic');
+  await photoInput.setInputFiles('/tmp/plant.jpg');
+  await expect(page.getByRole('button', { name: 'Identify this photo' })).toBeVisible();
+  await page.route(`**/api/plants/${plant.id}/photos/*/identify`, route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ status: 'succeeded', candidates: [{ scientific_name: 'Monstera deliciosa', common_names: ['Swiss cheese plant'], score: 0.94 }] }),
   }));
-  await identifyInput.setInputFiles('/tmp/plant.jpg');
-  await page.getByRole('button', { name: 'Identify species', exact: true }).click();
+  await page.getByRole('button', { name: 'Identify this photo' }).click();
   await expect(page.getByRole('heading', { name: 'Review suggestions' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Confirm species' })).toBeDisabled();
   await page.getByRole('radio').check();
   await page.getByRole('button', { name: 'Cancel identification', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Species not set' })).toBeVisible();
   await expect(page.getByRole('link', { name: /on Wikipedia/ })).toHaveCount(0);
-  await identifyInput.setInputFiles('/tmp/plant.jpg');
-  await page.getByRole('button', { name: 'Identify species', exact: true }).click();
+  await page.getByRole('button', { name: 'Identify this photo' }).click();
   await page.getByRole('radio').check();
   await page.getByRole('button', { name: 'Confirm species' }).click();
   await expect(page.getByRole('heading', { name: 'Monstera deliciosa' })).toBeVisible();
@@ -153,7 +153,7 @@ test('identification is one-shot and species changes only after confirmation', a
   await expect(reference).toHaveAttribute('rel', 'noopener noreferrer');
   await reference.focus();
   await expect(reference).toBeFocused();
-  await page.unroute(`**/api/plants/${plant.id}/photos/identify`);
+  await page.unroute(`**/api/plants/${plant.id}/photos/*/identify`);
 });
 
 test('reopens cached collection reads offline and serves a cached app shell', async ({ page, context }) => {
