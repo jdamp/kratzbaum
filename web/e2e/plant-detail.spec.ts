@@ -157,7 +157,14 @@ test('small-screen editor groups focus, seasonal controls, cancellation and keyb
   expect((await read(request, plant.id)).notes).toBe('');
 });
 
-test('care sheet retains failed input and records exactly one backdated event with a note', async ({ page, request }) => {
+for (const [timezone, expectedTimestamp] of [
+  ['UTC', '2026-10-30T10:30:00Z'],
+  ['Europe/Berlin', '2026-10-30T09:30:00Z'],
+] as const) test(`care sheet retains failed input and records exactly one backdated event with a note (${timezone})`, async ({ page, request }) => {
+  await page.route('**/api/bootstrap', async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...await response.json(), timezone } });
+  });
   const plant = await create(request);
   await page.goto(`/plants/${plant.id}`);
   const launcher = page.getByRole('button', { name: 'Gießen eintragen', exact: true });
@@ -184,7 +191,7 @@ test('care sheet retains failed input and records exactly one backdated event wi
   await expect(launcher).toBeFocused();
   const data = await (await request.get(`/api/plants/${plant.id}`)).json();
   expect(data.activities).toHaveLength(1);
-  expect(data.activities[0]).toMatchObject({ type: 'watering', note: 'Erde war trocken.', occurred_at: '2026-10-30T09:30:00Z' });
+  expect(data.activities[0]).toMatchObject({ type: 'watering', note: 'Erde war trocken.', occurred_at: expectedTimestamp });
   await page.getByRole('tab', { name: 'Verlauf' }).click();
   await expect(page.locator('.timeline')).toContainText('Erde war trocken.');
 });

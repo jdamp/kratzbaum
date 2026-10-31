@@ -1,6 +1,6 @@
 ## Implementation outcome
 
-Completed the approved plant-detail redesign and Wikipedia override behavior on 2026-10-31. The change remains available for review and has not been archived.
+Completed the approved plant-detail redesign and Wikipedia override behavior on 2026-10-31. Synced the three delta specifications into the main specs and archived the completed change on the same date.
 
 - Detail now uses an identity header and accessible Übersicht/Fotos/Verlauf tabs. The overview prioritizes confirmed care status, with a plan, persistent plant notes, and recent activity; the gallery retains identification state across tab switches.
 - Bearbeiten groups plant details and care settings in a full-screen phone editor or desktop dialog. Room-only saves merge deliberate changes onto the latest plant, preserving unrelated values. Seasonal pause controls have independent labels and editor focus is trapped/restored.
@@ -33,6 +33,8 @@ Local review captures:
 - `/tmp/kratzbaum-redesign-care-final.png`
 
 ## Test environment notes
+
+- The first CI run passed frontend, Go/database, and container smoke checks; 66 browser tests passed and one failed because its timestamp expectation assumed Berlin while the container used UTC. The care-entry test now explicitly supplies both UTC and Europe/Berlin deployment timezones and asserts the corresponding saved timestamps. All 12 plant-detail browser tests passed against an isolated UTC application after the correction.
 
 - PostgreSQL 18 client binaries were extracted into a temporary directory to match the shared PostgreSQL 18 server; the system client was PostgreSQL 15. Connection credentials were kept outside the repository and were not printed.
 - Chromium used the existing browser cache via `PLAYWRIGHT_BROWSERS_PATH`. Browser servers used isolated temporary data directories and JPEG fixtures. Because this workspace has no HEIC decoder, their decoder executable was `/bin/false`; browser HEIC selection/fallback scenarios and the Go media suite passed, but no production-container HEIC conversion smoke test was run for this change.
