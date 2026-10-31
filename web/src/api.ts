@@ -104,10 +104,10 @@ export interface PlantInput {
 }
 
 export const activityLabels: Record<ActivityType, string> = {
-  watering: 'Watering',
-  fertilizing: 'Fertilizing',
-  photo: 'Photo',
-  note: 'Care note',
+  watering: 'Gießen',
+  fertilizing: 'Düngen',
+  photo: 'Foto',
+  note: 'Pflegenotiz',
 };
 
 export const activityStyles: Record<ActivityType, string> = {
@@ -154,20 +154,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers.set('X-CSRF-Token', csrfToken);
   }
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !navigator.onLine) {
-    throw new ApiError('You’re offline. Changes are not saved; reconnect and try again.', 0);
+    throw new ApiError('Du bist offline. Änderungen werden nicht gespeichert. Stelle eine Verbindung her und versuche es erneut.', 0);
   }
   let response: Response;
   try {
     response = await fetch(path, { ...options, headers, credentials: 'same-origin' });
   } catch {
-    throw new ApiError('You’re offline. Check your connection and try again.', 0);
+    throw new ApiError('Du bist offline. Prüfe deine Verbindung und versuche es erneut.', 0);
   }
   if (!response.ok) {
-    let message = `Something went wrong (${response.status}).`;
+    let message = `Die Anfrage ist fehlgeschlagen (${response.status}). Bitte versuche es erneut.`;
     let code: string | undefined;
     try {
       const body = await response.json();
-      message = body.error || message;
+      if (response.headers.get('Content-Language')?.toLowerCase().startsWith('de') && typeof body.error === 'string') message = body.error;
       code = body.code;
     } catch {
       // The useful request status still reaches the screen.
@@ -215,6 +215,20 @@ export interface IdentificationResult {
   error?: string;
 }
 
+export function identificationError(code?: string): string {
+  const messages: Record<string, string> = {
+    plantnet_not_configured: 'Die Pflanzenbestimmung mit PlantNet ist nicht eingerichtet.',
+    plantnet_no_match: 'PlantNet hat keine passende Art gefunden.',
+    plantnet_auth: 'PlantNet hat den API-Schlüssel oder das Konto abgelehnt.',
+    plantnet_request_rejected: 'PlantNet hat die Bestimmungsanfrage abgelehnt.',
+    plantnet_quota: 'Das PlantNet-Kontingent ist aufgebraucht.',
+    plantnet_timeout: 'PlantNet hat nicht rechtzeitig geantwortet.',
+    plantnet_invalid_response: 'PlantNet hat eine ungültige Antwort geliefert.',
+    plantnet_unavailable: 'Der PlantNet-Dienst ist nicht verfügbar.',
+  };
+  return (code && messages[code]) || 'Die Bestimmung ist fehlgeschlagen. Bitte versuche es erneut.';
+}
+
 function identifyFile(path: string, file: File, attemptKey: string) {
   const body = new FormData();
   body.append('image', file);
@@ -226,7 +240,7 @@ export const identifyPlantFile = (plantID: string, file: File, attemptKey: strin
 export const identifySavedPhoto = (plantID: string, photoID: string, attemptKey: string) =>
   request<IdentificationResult>(`/api/plants/${plantID}/photos/${photoID}/identify`, { method: 'POST', headers: { 'Idempotency-Key': attemptKey } });
 
-export async function fetchMedia(path:string):Promise<string>{const headers=new Headers({'X-Kratzbaum-Cache-Context':cacheContext});let response:Response;try{response=await fetch(path,{headers,credentials:'same-origin'})}catch{throw new ApiError('This photo is not available offline yet.',0)}if(response.status===401||response.status===403){await clearLocalCollection();window.dispatchEvent(new CustomEvent('kratzbaum:access-denied'));throw new ApiError('Sign in is required to view this photo.',response.status)}if(!response.ok)throw new ApiError('Could not load this photo.',response.status);return URL.createObjectURL(await response.blob())}
+export async function fetchMedia(path:string):Promise<string>{const headers=new Headers({'X-Kratzbaum-Cache-Context':cacheContext});let response:Response;try{response=await fetch(path,{headers,credentials:'same-origin'})}catch{throw new ApiError('Dieses Foto ist offline noch nicht verfügbar.',0)}if(response.status===401||response.status===403){await clearLocalCollection();window.dispatchEvent(new CustomEvent('kratzbaum:access-denied'));throw new ApiError('Melde dich an, um dieses Foto anzusehen.',response.status)}if(!response.ok)throw new ApiError('Das Foto konnte nicht geladen werden.',response.status);return URL.createObjectURL(await response.blob())}
 
 export async function clearLocalCollection(broadcast=true) {
   try{localStorage.removeItem('kratzbaum-context')}catch{/* Local storage may be unavailable. */}

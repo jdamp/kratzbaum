@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { identifyDraft, identifyPlantFile, identifySavedPhoto } from './api';
+import { ApiError, identificationError, identifyDraft, identifyPlantFile, identifySavedPhoto } from './api';
 import type { SpeciesCandidate } from './api';
+import { formatPercent } from './locale';
 
 export const photoTypes = 'image/jpeg,image/png,image/webp,image/heic,.heic,.heif';
 type Source = File | string | null;
@@ -46,7 +47,7 @@ export function useIdentification({ source: inputSource, plantID, available, off
     onBusyChange?.(false);
     return () => { generation.current++; onBusyChange?.(false); };
   }, [inputSource, plantID, onBusyChange]);
-  const unavailable = !available ? 'Species identification is not configured. You can enter the scientific name manually.' : offline ? 'Species identification is unavailable offline. Reconnect to identify.' : '';
+  const unavailable = !available ? 'Die Pflanzenbestimmung ist nicht eingerichtet. Du kannst den wissenschaftlichen Namen selbst eingeben.' : offline ? 'Die Pflanzenbestimmung ist offline nicht verfügbar. Stelle eine Verbindung her, um eine Pflanze zu bestimmen.' : '';
   const candidates = results?.source === source ? results.candidates : [];
   const locked = disabled || !!unavailable;
   const active = (token: number, startedSource: Source, startedPlant: string | undefined) =>
@@ -68,10 +69,10 @@ export function useIdentification({ source: inputSource, plantID, available, off
         : plantID ? await identifyPlantFile(plantID, source, key) : await identifyDraft(source, key);
       if (!active(token, startedSource, startedPlant)) return;
       if (result.status !== 'succeeded' || !result.candidates?.length) {
-        setError(result.error || 'No likely species found. You can enter the scientific name manually.');
+        setError(identificationError(result.error_code || (result.status === 'no_match' ? 'plantnet_no_match' : undefined)));
       } else setResults({ source, candidates: result.candidates });
     } catch (e) {
-      if (active(token, startedSource, startedPlant)) setError(e instanceof Error ? e.message : 'Identification failed. Try again explicitly.');
+      if (active(token, startedSource, startedPlant)) setError(e instanceof ApiError ? e.message : 'Die Bestimmung ist fehlgeschlagen. Bitte versuche es erneut.');
     } finally {
       if (active(token, startedSource, startedPlant)) { pending.current = false; setPhase('idle'); onBusyChange?.(false); }
     }
@@ -86,7 +87,7 @@ export function useIdentification({ source: inputSource, plantID, available, off
       await onConfirm(chosen);
       if (active(token, startedSource, startedPlant)) { setResults(null); setChosen(null); }
     } catch (e) {
-      if (active(token, startedSource, startedPlant)) setError(e instanceof Error ? e.message : 'Could not save species. Confirm again to retry saving.');
+      if (active(token, startedSource, startedPlant)) setError(e instanceof ApiError ? e.message : 'Die Art konnte nicht gespeichert werden. Bestätige erneut, um es noch einmal zu versuchen.');
     } finally {
       if (active(token, startedSource, startedPlant)) { pending.current = false; setPhase('idle'); onBusyChange?.(false); }
     }
@@ -112,23 +113,23 @@ export function IdentificationReview({ controller, showStart = false }: { contro
   const group = useId();
   const { source, plantID, phase, busy, locked, unavailable, error, candidates, chosen, choose, start, confirm, cancel } = controller;
   return <div className="identify-control" aria-busy={busy}>
-    {showStart && <button type="button" className="secondary" disabled={!source || busy || locked} onClick={() => void start()}>Identify species</button>}
+    {showStart && <button type="button" className="secondary" disabled={!source || busy || locked} onClick={() => void start()}>Pflanze bestimmen</button>}
     {unavailable && <p className="muted">{unavailable}</p>}
-    {busy && <p role="status">{phase === 'identifying' ? 'Identifying species…' : plantID ? 'Saving species…' : 'Applying species to draft…'}</p>}
+    {busy && <p role="status">{phase === 'identifying' ? 'Pflanze wird bestimmt…' : plantID ? 'Art wird gespeichert…' : 'Art wird in den Entwurf übernommen…'}</p>}
     {error && <p role="alert">{error}</p>}
     {candidates.length > 0 && <div className="candidate-list">
-      <h3 id={group + '-title'}>Review suggestions</h3>
-      <p className="muted">{plantID ? 'Your plant details change only after you confirm a species.' : 'Confirm a species to fill this draft. Add plant saves it separately.'}</p>
+      <h3 id={group + '-title'}>Vorschläge prüfen</h3>
+      <p className="muted">{plantID ? 'Deine Pflanzendaten ändern sich erst, wenn du eine Art bestätigst.' : 'Bestätige eine Art, um den Entwurf auszufüllen. Die Pflanze wird separat gespeichert.'}</p>
       <div role="radiogroup" aria-labelledby={group + '-title'}>
         {candidates.map((c, i) => <label className="candidate" key={i}>
           <input type="radio" name={group} checked={chosen === c} disabled={busy || locked} onChange={() => choose(c)}/>
-          <span><b>{c.scientific_name}</b><small>{c.common_names?.join(', ') || 'Scientific name'}</small></span>
-          <small>{Math.round(c.score * 100)}%</small>
+          <span><b>{c.scientific_name}</b><small>{c.common_names?.join(', ') || 'Wissenschaftlicher Name'}</small></span>
+          <small>{formatPercent(c.score)}</small>
         </label>)}
       </div>
       <div className="modal-actions">
-        <button type="button" className="secondary" disabled={busy} onClick={cancel}>Cancel identification</button>
-        <button type="button" className="primary" disabled={!chosen || !candidates.includes(chosen) || busy || locked} onClick={() => void confirm()}>Confirm species</button>
+        <button type="button" className="secondary" disabled={busy} onClick={cancel}>Bestimmung abbrechen</button>
+        <button type="button" className="primary" disabled={!chosen || !candidates.includes(chosen) || busy || locked} onClick={() => void confirm()}>Art bestätigen</button>
       </div>
     </div>}
   </div>;

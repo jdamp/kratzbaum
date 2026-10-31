@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { readFileSync } from 'node:fs';
 
 const created = new Set<string>();
@@ -18,16 +18,16 @@ test.afterEach(async ({ request }) => {
 
 async function openForm(page: Page) {
   await page.goto('/plants');
-  await page.getByRole('button', { name: /add (your first )?plant/i }).first().click();
-  await page.getByLabel('Plant name').fill(`Photo plant ${Date.now()}`);
-  await page.getByLabel('Care notes').fill('Keep these details.');
-  await expect(page.getByLabel('Common name', { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel('Family', { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel('Scientific name', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /(erste )?Pflanze hinzufügen/i }).first().click();
+  await page.getByLabel("Pflanzenname").fill(`Photo plant ${Date.now()}`);
+  await page.getByLabel("Pflegenotizen").fill('Keep these details.');
+  await expect(page.getByLabel("Gebräuchlicher Name", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Pflanzenfamilie", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Wissenschaftlicher Name", { exact: true })).toBeVisible();
   return page.getByRole('dialog');
 }
-const picker = (page: Page) => page.getByLabel('Plant photo · optional');
-const add = (page: Page) => page.getByRole('dialog').getByRole('button', { name: 'Add plant', exact: true });
+const picker = (page: Page) => page.getByLabel("Pflanzenfoto · optional");
+const add = (page: Page) => page.getByRole('dialog').getByRole('button', { name: "Pflanze hinzufügen", exact: true });
 async function choose(page: Page) { await picker(page).setInputFiles('/tmp/plant.jpg'); }
 async function uploadFailure(page: Page) {
   await page.route('**/api/plants/*/photos', route => route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ error: 'Photo rejected for this test.' }) }));
@@ -47,46 +47,46 @@ test('selects, replaces and removes local photos, falls back for HEIC, and cance
   });
   expect(await picker(page).getAttribute('accept')).toContain('image/webp');
   expect(await picker(page).getAttribute('accept')).toContain('.heic');
-  await dialog.getByRole('button', { name: 'Choose photo' }).focus();
+  await dialog.getByRole('button', { name: "Foto auswählen" }).focus();
   await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Tab');
-  await expect(dialog.getByRole('button', { name: 'Choose photo' })).toBeFocused();
+  await expect(dialog.getByRole('button', { name: "Foto auswählen" })).toBeFocused();
   expect(await page.evaluate(() => getComputedStyle(document.activeElement!).outlineStyle)).not.toBe('none');
   await choose(page);
-  await expect(dialog.getByRole('img', { name: 'Selected plant photo preview' })).toBeVisible();
+  await expect(dialog.getByRole('img', { name: "Vorschau des ausgewählten Pflanzenfotos" })).toBeVisible();
   await expect(dialog.getByText('plant.jpg', { exact: true })).toBeVisible();
   for (const mime of ['image/png', 'image/webp']) {
     await picker(page).setInputFiles({ name: `replacement.${mime.split('/')[1]}`, mimeType: mime, buffer: readFileSync('/tmp/plant.jpg') });
     await expect(dialog.getByText(`replacement.${mime.split('/')[1]}`, { exact: true })).toBeVisible();
-    await expect(page.getByLabel('Care notes')).toHaveValue('Keep these details.');
+    await expect(page.getByLabel("Pflegenotizen")).toHaveValue('Keep these details.');
   }
   await picker(page).setInputFiles({ name: 'window-plant.heic', mimeType: 'image/heic', buffer: Buffer.from('unsupported browser preview') });
-  await expect(dialog.getByText('Preview unavailable. Your photo can still be uploaded.')).toBeVisible();
+  await expect(dialog.getByText("Keine Vorschau verfügbar. Dein Foto kann trotzdem hochgeladen werden.")).toBeVisible();
   await expect(dialog.getByRole('img')).toHaveCount(0);
   await expect(add(page)).toBeEnabled();
-  for (const name of ['Replace', 'Remove']) {
+  for (const name of ['Ersetzen', 'Entfernen']) {
     expect((await dialog.getByRole('button', { name, exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-  await dialog.getByRole('button', { name: 'Remove', exact: true }).click();
-  await expect(dialog.getByRole('button', { name: 'Choose photo' })).toBeVisible();
+  await dialog.getByRole('button', { name: "Entfernen", exact: true }).click();
+  await expect(dialog.getByRole('button', { name: "Foto auswählen" })).toBeVisible();
   await choose(page);
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await dialog.getByRole('button', { name: "Abbrechen", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(writes).toBe(0);
   const urls = await page.evaluate(() => (window as unknown as { previewURLs: { created: string[]; revoked: string[] } }).previewURLs);
   expect(urls.created.length).toBeGreaterThanOrEqual(4);
   expect(urls.created.every(url => urls.revoked.includes(url))).toBe(true);
-  await page.getByRole('button', { name: /add (your first )?plant/i }).first().click();
+  await page.getByRole('button', { name: /(erste )?Pflanze hinzufügen/i }).first().click();
   await expect(picker(page)).toHaveValue('');
-  await expect(page.getByRole('button', { name: 'Choose photo' })).toBeVisible();
+  await expect(page.getByRole('button', { name: "Foto auswählen" })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
 });
 
 test('creates with a cover and one photo activity, without identification, and keeps editing unchanged', async ({ page }) => {
   const dialog = await openForm(page);
-  const name = await page.getByLabel('Plant name').inputValue();
+  const name = await page.getByLabel("Pflanzenname").inputValue();
   let identification = 0;
   page.on('request', r => { if (r.url().includes('/photos/identify')) identification++; });
   await choose(page);
@@ -98,7 +98,7 @@ test('creates with a cover and one photo activity, without identification, and k
   await expect(card.locator('img')).toBeVisible();
   await card.click();
   await expect(page.locator('.photo-grid img')).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Cover photo' })).toBeVisible();
+  await expect(page.getByRole('button', { name: "Titelbild" })).toBeVisible();
   const detail = await (await page.request.get(`/api/plants/${plant.id}`)).json();
   expect(detail.plant.cover_photo_id).toBeTruthy();
   expect(detail.activities.filter((a: { type: string }) => a.type === 'photo')).toHaveLength(1);
@@ -108,12 +108,12 @@ test('creates with a cover and one photo activity, without identification, and k
   const seedResponse = await page.request.put(`/api/plants/${plant.id}`, { data: seeded });
   expect(seedResponse.ok()).toBe(true);
   await page.reload();
-  await page.getByRole('button', { name: 'Edit plant and care schedule' }).click();
-  await expect(page.getByLabel('Common name', { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel('Family', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: "Pflanze und Pflegeplan bearbeiten" }).click();
+  await expect(page.getByLabel("Gebräuchlicher Name", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Pflanzenfamilie", { exact: true })).toHaveCount(0);
   await expect(picker(page)).toHaveCount(0);
-  await page.getByLabel('Care notes').fill('Edited notes.');
-  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await page.getByLabel("Pflegenotizen").fill('Edited notes.');
+  await dialog.getByRole('button', { name: "Änderungen speichern" }).click();
   await expect(dialog).toHaveCount(0);
   const edited = await (await page.request.get(`/api/plants/${plant.id}`)).json();
   expect(edited.plant.notes).toBe('Edited notes.');
@@ -126,7 +126,7 @@ test('removing the photo saves normally without an upload', async ({ page }) => 
   let uploads = 0;
   page.on('request', r => { if (r.method() === 'POST' && r.url().includes('/photos')) uploads++; });
   await choose(page);
-  await dialog.getByRole('button', { name: 'Remove', exact: true }).click();
+  await dialog.getByRole('button', { name: "Entfernen", exact: true }).click();
   await add(page).click();
   await expect(dialog).toHaveCount(0);
   expect(uploads).toBe(0);
@@ -140,8 +140,8 @@ test('retains details and selection after create rejection and never starts the 
   page.on('request', r => { if (r.method() === 'POST' && r.url().includes('/photos')) uploads++; });
   await page.route('**/api/plants', route => route.request().method() === 'POST' ? route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Please check the plant details.' }) }) : route.continue());
   await add(page).click();
-  await expect(dialog.getByRole('alert')).toContainText('Please check the plant details.');
-  await expect(page.getByLabel('Care notes')).toHaveValue('Keep these details.');
+  await expect(dialog.getByRole('alert')).toContainText('Die Anfrage ist fehlgeschlagen');
+  await expect(page.getByLabel("Pflegenotizen")).toHaveValue('Keep these details.');
   await expect(dialog.getByText('plant.jpg', { exact: true })).toBeVisible();
   expect(uploads).toBe(0);
   await page.unroute('**/api/plants');
@@ -168,22 +168,22 @@ test('locks saving and uploading phases, then retries a replacement against the 
     else await route.continue();
   });
   await add(page).evaluate(b => { (b as HTMLButtonElement).click(); (b as HTMLButtonElement).click(); });
-  await expect(dialog.getByRole('status')).toHaveText('Saving plant…');
-  await expect(page.getByLabel('Plant name')).toBeDisabled();
+  await expect(dialog.getByRole('status')).toHaveText("Pflanze wird gespeichert…");
+  await expect(page.getByLabel("Pflanzenname")).toBeDisabled();
   await expect(picker(page)).toBeDisabled();
-  await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: "Schließen", exact: true })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeVisible();
   expect(creates).toBe(1);
   releaseCreate();
-  await expect(dialog.getByRole('status')).toHaveText('Plant saved. Uploading photo…');
-  await expect(dialog.getByRole('button', { name: 'Continue without photo' })).toBeDisabled();
+  await expect(dialog.getByRole('status')).toHaveText("Pflanze gespeichert. Foto wird hochgeladen…");
+  await expect(dialog.getByRole('button', { name: "Ohne Foto fortfahren" })).toBeDisabled();
   expect(uploads).toBe(1);
   releaseUpload();
-  await expect(dialog.getByRole('alert')).toContainText('Plant saved. Photo needs attention.');
-  await expect(page.getByLabel('Plant name')).toBeHidden();
+  await expect(dialog.getByRole('alert')).toContainText("Pflanze gespeichert. Beim Foto ist ein Problem aufgetreten.");
+  await expect(page.getByLabel("Pflanzenname")).toBeHidden();
   await picker(page).setInputFiles({ name: 'replacement.jpg', mimeType: 'image/jpeg', buffer: readFileSync('/tmp/plant.jpg') });
-  await dialog.getByRole('button', { name: 'Retry photo', exact: true }).click();
+  await dialog.getByRole('button', { name: "Foto erneut hochladen", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(creates).toBe(1);
   expect(uploads).toBe(2);
@@ -192,21 +192,21 @@ test('locks saving and uploading phases, then retries a replacement against the 
   expect(detail.activities.filter((a: { type: string }) => a.type === 'photo')).toHaveLength(1);
 });
 
-for (const dismiss of ['Continue without photo', 'Close']) {
+for (const dismiss of ['Ohne Foto fortfahren', 'Schließen']) {
   test(`preserves the plant after photo rejection when choosing ${dismiss}`, async ({ page }) => {
     const dialog = await openForm(page);
-    const name = await page.getByLabel('Plant name').inputValue();
+    const name = await page.getByLabel("Pflanzenname").inputValue();
     await choose(page);
     await uploadFailure(page);
     await add(page).click();
-    await expect(dialog.getByRole('alert')).toContainText('Plant saved.');
+    await expect(dialog.getByRole('alert')).toContainText("Pflanze gespeichert.");
     await dialog.getByRole('button', { name: dismiss, exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
     await expect.poll(() => created.size).toBe(1);
-    await page.getByRole('button', { name: /add (your first )?plant/i }).first().click();
-    await expect(page.getByRole('button', { name: 'Choose photo' })).toBeVisible();
-    await expect(page.getByLabel('Plant name')).toHaveValue('');
+    await page.getByRole('button', { name: /(erste )?Pflanze hinzufügen/i }).first().click();
+    await expect(page.getByRole('button', { name: "Foto auswählen" })).toBeVisible();
+    await expect(page.getByLabel("Pflanzenname")).toHaveValue('');
   });
 }
 
@@ -217,16 +217,16 @@ test('keeps the saved context after connection loss and requires explicit retry 
   page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/api/plants') creates++; });
   await page.route('**/api/plants/*/photos', async route => { uploads++; await context.setOffline(true); await route.abort(); });
   await add(page).click();
-  await expect(dialog.getByRole('alert')).toContainText('could not be confirmed');
+  await expect(dialog.getByRole('alert')).toContainText("konnte nicht bestätigt werden");
   await expect(dialog.getByText('plant.jpg', { exact: true })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Retry photo', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toContainText('Plant saved.');
+  await dialog.getByRole('button', { name: "Foto erneut hochladen", exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText("Pflanze gespeichert.");
   expect(uploads).toBe(1);
   await page.unroute('**/api/plants/*/photos');
   await context.setOffline(false);
-  await expect(dialog.getByRole('button', { name: 'Retry photo', exact: true })).toBeEnabled();
+  await expect(dialog.getByRole('button', { name: "Foto erneut hochladen", exact: true })).toBeEnabled();
   expect(uploads).toBe(1);
-  await dialog.getByRole('button', { name: 'Retry photo', exact: true }).click();
+  await dialog.getByRole('button', { name: "Foto erneut hochladen", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(creates).toBe(1);
 });
@@ -242,8 +242,8 @@ test('a collection refresh failure after a successful upload never offers anothe
   await page.route('**/api/bootstrap', route => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Refresh unavailable."}' }));
   await add(page).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole('alert')).toContainText('Refresh unavailable.');
-  await expect(page.getByRole('button', { name: 'Retry photo', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('alert')).toContainText('Die Anfrage ist fehlgeschlagen');
+  await expect(page.getByRole('button', { name: "Foto erneut hochladen", exact: true })).toHaveCount(0);
   expect(creates).toBe(1);
   expect(uploads).toBe(1);
 });

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 const created: string[] = [];
 test.afterAll(async ({ request }) => {
@@ -6,21 +6,21 @@ test.afterAll(async ({ request }) => {
 });
 
 async function addPlant(page: import('@playwright/test').Page, name: string) {
-  if (!(await page.getByRole('button', { name: /add (your first )?plant/i }).count())) {
-    await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: /Plants/ }).click();
+  if (!(await page.getByRole('button', { name: /(erste )?Pflanze hinzufügen/i }).count())) {
+    await page.getByRole('navigation', { name: "Hauptnavigation" }).getByRole('button', { name: /Pflanzen/ }).click();
   }
-  await page.getByRole('button', { name: /add (your first )?plant/i }).first().click();
-  await page.getByLabel('Plant name').fill(name);
-  await page.getByLabel('Care started').fill(new Date().toISOString().slice(0, 10));
-  await page.getByLabel(/Water every/).fill('0');
-  await page.getByLabel('Plant name').press('Enter');
+  await page.getByRole('button', { name: /(erste )?Pflanze hinzufügen/i }).first().click();
+  await page.getByLabel("Pflanzenname").fill(name);
+  await page.getByLabel("Pflegebeginn").fill(new Date().toISOString().slice(0, 10));
+  await page.getByLabel(/Gießabstand/).fill('0');
+  await page.getByLabel("Pflanzenname").press('Enter');
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByLabel(/Water every/)).toHaveValue('0');
-  await page.getByLabel(/Water every/).fill('7');
-  await page.getByLabel('Summer fertilizer interval (days)').fill('14');
-  await page.getByLabel('Winter fertilizer interval (days)').fill('42');
-  await page.getByRole('button', { name: 'Add plant' }).last().click();
-  await expect(page.getByRole('heading', { name: 'Your plants' })).toBeVisible();
+  await expect(page.getByLabel(/Gießabstand/)).toHaveValue('0');
+  await page.getByLabel(/Gießabstand/).fill('7');
+  await page.getByLabel("Düngeabstand im Sommer (Tage)").fill('14');
+  await page.getByLabel("Düngeabstand im Winter (Tage)").fill('42');
+  await page.getByRole('button', { name: "Pflanze hinzufügen" }).last().click();
+  await expect(page.getByRole('heading', { name: "Deine Pflanzen" })).toBeVisible();
   const response = await page.request.get('/api/plants');
   const payload = await response.json();
   const plant = payload.plants.find((item: { name: string }) => item.name === name);
@@ -42,20 +42,20 @@ test('creates a plant, records care and a note, and keeps the form usable on a p
   const name = `PW fern ${Date.now()}`;
   const plant = await addPlant(page, name);
   await page.getByRole('button', { name: new RegExp(name) }).click();
-  await expect(page.getByText('Every 14 days')).toBeVisible();
-  await expect(page.getByText('Every 42 days')).toBeVisible();
-  await page.getByRole('button', { name: /Record watering/ }).press('Enter');
-  await expect(page.getByRole('heading', { name: /Timeline/ })).toBeVisible();
-  await expect(page.getByText('Watering').last()).toBeVisible();
+  await expect(page.getByText("Alle 14 Tage")).toBeVisible();
+  await expect(page.getByText("Alle 42 Tage")).toBeVisible();
+  await page.getByRole('button', { name: /Gießen eintragen/ }).press('Enter');
+  await expect(page.getByRole('heading', { name: /Verlauf/ })).toBeVisible();
+  await expect(page.getByText("Gießen").last()).toBeVisible();
   const nextWatering = await wateringDue(page, plant.id);
-  await page.getByRole('textbox', { name: 'Care note', exact: true }).fill('Rotate toward the light weekly.');
-  await page.getByRole('button', { name: 'Add note' }).click();
+  await page.getByRole('textbox', { name: "Pflegenotiz", exact: true }).fill('Rotate toward the light weekly.');
+  await page.getByRole('button', { name: "Notiz hinzufügen" }).click();
   await expect(page.getByText('Rotate toward the light weekly.')).toBeVisible();
   await expect(await wateringDue(page, plant.id)).toEqual(nextWatering);
-  const fertilizerDate = page.getByLabel('Fertilizing date and time');
+  const fertilizerDate = page.getByLabel("Datum und Uhrzeit des Düngens");
   await fertilizerDate.fill('2024-04-01T12:00');
   await page.route(`**/api/plants/${plant.id}/activities`, route => route.abort());
-  await page.getByRole('button', { name: /Record fertilizing/ }).click();
+  await page.getByRole('button', { name: /Düngen eintragen/ }).click();
   await expect(page.getByRole('alert')).toContainText(/offline/i);
   await expect(fertilizerDate).toHaveValue('2024-04-01T12:00');
   await page.unroute(`**/api/plants/${plant.id}/activities`);
@@ -64,30 +64,30 @@ test('creates a plant, records care and a note, and keeps the form usable on a p
     if (route.request().method() === 'POST') carePosts++;
     await route.continue();
   });
-  await page.getByRole('button', { name: /Record fertilizing/ }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
-  await expect(page.getByText('Fertilizing').last()).toBeVisible();
+  await page.getByRole('button', { name: /Düngen eintragen/ }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+  await expect(page.getByText("Düngen").last()).toBeVisible();
   await expect.poll(() => carePosts).toBe(1);
   await page.unroute(`**/api/plants/${plant.id}/activities`);
-  for (const [kind, label] of [['Watering', 'Watering'], ['Fertilizing', 'Fertilizing'], ['Care note', 'Care note']] as const) {
+  for (const [kind, label] of [['Gießen', 'Gießen'], ['Düngen', 'Düngen'], ['Pflegenotiz', 'Pflegenotiz']] as const) {
     await page.getByRole('button', { name: kind, exact: true }).click();
     await expect(page.locator('.timeline-item').first()).toContainText(label);
     await expect(page.locator('.timeline-item')).toHaveCount(1);
   }
-  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await page.getByRole('button', { name: "Alle", exact: true }).click();
   const timeline = page.locator('.timeline-item');
   const activityCount = await timeline.count();
-  const fertilizerItem = timeline.filter({ hasText: 'Fertilizing' }).first();
-  await fertilizerItem.getByRole('button', { name: 'Edit', exact: true }).click();
-  await page.getByLabel('Edit activity note').fill('Adjusted care record.');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const fertilizerItem = timeline.filter({ hasText: 'Düngen' }).first();
+  await fertilizerItem.getByRole('button', { name: "Bearbeiten", exact: true }).click();
+  await page.getByLabel("Pflegenotiz bearbeiten").fill('Adjusted care record.');
+  await page.getByRole('button', { name: "Speichern", exact: true }).click();
   await expect(page.getByText('Adjusted care record.')).toBeVisible();
-  await timeline.filter({ hasText: 'Fertilizing' }).first().getByRole('button', { name: 'Delete activity' }).click();
+  await timeline.filter({ hasText: 'Düngen' }).first().getByRole('button', { name: "Eintrag löschen" }).click();
   await expect(timeline).toHaveCount(activityCount - 1);
-  await page.getByRole('button', { name: '← All plants' }).click();
-  await page.getByRole('button', { name: /Calendar/ }).click();
+  await page.getByRole('button', { name: "← Alle Pflanzen" }).click();
+  await page.getByRole('button', { name: /Kalender/ }).click();
   await expect(page.getByRole('heading', { name: /2026|2025|2027/ })).toBeVisible();
   await expect(page.getByText('Rotate toward the light weekly.')).toBeVisible();
-  await expect(page.getByText(/Watering/).last()).toBeVisible();
+  await expect(page.getByText(/Gießen/).last()).toBeVisible();
   expect(await page.locator('body').evaluate(el => el.scrollWidth)).toBeLessThanOrEqual(390);
   expect(plant.id).toMatch(/^[a-f0-9-]{36}$/);
 });
@@ -95,18 +95,18 @@ test('creates a plant, records care and a note, and keeps the form usable on a p
 test('shows reachable navigation, settings, and touch targets at phone and desktop widths', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 760 });
   await page.goto('/');
-  const nav = page.getByRole('navigation', { name: 'Main navigation' });
-  await expect(nav.getByRole('button', { name: 'Today' })).toBeVisible();
-  await expect(nav.getByRole('button', { name: 'Plants' })).toBeVisible();
-  await expect(nav.getByRole('button', { name: 'Calendar' })).toBeVisible();
+  const nav = page.getByRole('navigation', { name: "Hauptnavigation" });
+  await expect(nav.getByRole('button', { name: "Heute" })).toBeVisible();
+  await expect(nav.getByRole('button', { name: "Pflanzen" })).toBeVisible();
+  await expect(nav.getByRole('button', { name: "Kalender" })).toBeVisible();
   const touchTargets = await nav.locator('button').evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().height));
   expect(touchTargets.every(height => height >= 44)).toBeTruthy();
-  await page.getByRole('button', { name: 'Settings' }).click();
-  await expect(page.getByRole('heading', { name: 'Collection settings' })).toBeVisible();
-  await expect(page.getByText('Open access')).toBeVisible();
+  await page.getByRole('button', { name: "Einstellungen" }).click();
+  await expect(page.getByRole('heading', { name: "Sammlungseinstellungen" })).toBeVisible();
+  await expect(page.getByText("Freier Zugang")).toBeVisible();
   expect(await page.locator('body').evaluate(el => el.scrollWidth)).toBeLessThanOrEqual(320);
   await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(nav.getByRole('button', { name: 'Calendar' })).toBeVisible();
+  await expect(nav.getByRole('button', { name: "Kalender" })).toBeVisible();
   await page.keyboard.press('Tab');
   const focusedOutline = await page.evaluate(() => getComputedStyle(document.activeElement!).outlineStyle);
   expect(focusedOutline).not.toBe('none');
@@ -130,25 +130,25 @@ test('identification is one-shot and species changes only after confirmation', a
   const photoInput = page.locator('.gallery .section-title input');
   expect(await photoInput.getAttribute('accept')).toContain('.heic');
   await photoInput.setInputFiles('/tmp/plant.jpg');
-  await expect(page.getByRole('button', { name: 'Identify this photo' })).toBeVisible();
+  await expect(page.getByRole('button', { name: "Pflanze auf diesem Foto bestimmen" })).toBeVisible();
   await page.route(`**/api/plants/${plant.id}/photos/*/identify`, route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ status: 'succeeded', candidates: [{ scientific_name: 'Monstera deliciosa', common_names: ['Swiss cheese plant'], score: 0.94 }] }),
   }));
-  await page.getByRole('button', { name: 'Identify this photo' }).click();
-  await expect(page.getByRole('heading', { name: 'Review suggestions' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirm species' })).toBeDisabled();
+  await page.getByRole('button', { name: "Pflanze auf diesem Foto bestimmen" }).click();
+  await expect(page.getByRole('heading', { name: "Vorschläge prüfen" })).toBeVisible();
+  await expect(page.getByRole('button', { name: "Art bestätigen" })).toBeDisabled();
   await page.getByRole('radio').check();
-  await page.getByRole('button', { name: 'Cancel identification', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Species not set' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /on Wikipedia/ })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Identify this photo' }).click();
+  await page.getByRole('button', { name: "Bestimmung abbrechen", exact: true }).click();
+  await expect(page.getByRole('heading', { name: "Art nicht angegeben" })).toBeVisible();
+  await expect(page.getByRole('link', { name: /auf Wikipedia/ })).toHaveCount(0);
+  await page.getByRole('button', { name: "Pflanze auf diesem Foto bestimmen" }).click();
   await page.getByRole('radio').check();
-  await page.getByRole('button', { name: 'Confirm species' }).click();
+  await page.getByRole('button', { name: "Art bestätigen" }).click();
   await expect(page.getByRole('heading', { name: 'Monstera deliciosa' })).toBeVisible();
-  const reference = page.getByRole('link', { name: 'Monstera deliciosa on Wikipedia (opens in a new tab)' });
-  await expect(reference).toHaveAttribute('href', 'https://en.wikipedia.org/wiki/Monstera_deliciosa');
+  const reference = page.getByRole('link', { name: "Monstera deliciosa auf Wikipedia (öffnet einen neuen Tab)" });
+  await expect(reference).toHaveAttribute('href', 'https://de.wikipedia.org/wiki/Monstera_deliciosa');
   await expect(reference).toHaveAttribute('target', '_blank');
   await expect(reference).toHaveAttribute('rel', 'noopener noreferrer');
   await reference.focus();
@@ -168,13 +168,13 @@ test('reopens cached collection reads offline and serves a cached app shell', as
   expect(uploaded.status(), await uploaded.text()).toBe(201);
   await expect(page.locator('.photo-grid img')).toBeVisible();
   await expect(await wateringDue(page, plant.id)).toEqual(nextWatering);
-  await page.getByRole('button', { name: 'Photo', exact: true }).click();
-  await expect(page.locator('.timeline-item').first()).toContainText('Photo');
-  await page.getByRole('button', { name: 'All', exact: true }).click();
-  const setCover = page.getByRole('button', { name: 'Set cover' });
+  await page.getByRole('button', { name: "Foto", exact: true }).click();
+  await expect(page.locator('.timeline-item').first()).toContainText("Foto");
+  await page.getByRole('button', { name: "Alle", exact: true }).click();
+  const setCover = page.getByRole('button', { name: "Als Titelbild festlegen" });
   if (await setCover.count()) await setCover.click();
-  await expect(page.getByRole('button', { name: 'Cover photo' })).toBeVisible();
-  await page.getByRole('button', { name: /Calendar/ }).click();
+  await expect(page.getByRole('button', { name: "Titelbild" })).toBeVisible();
+  await page.getByRole('button', { name: /Kalender/ }).click();
   await expect(page.getByRole('heading', { name: /2026|2025|2027/ })).toBeVisible();
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await page.reload();
@@ -184,7 +184,7 @@ test('reopens cached collection reads offline and serves a cached app shell', as
   await context.setOffline(true);
   await page.goto('/plants');
   await expect(page.getByText(name)).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Your plants' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Deine Pflanzen" })).toBeVisible();
   await page.goto(`/plants/${plant.id}`);
   await expect(page.getByRole('heading', { name })).toBeVisible();
   await expect(page.locator('.photo-grid img')).toBeVisible();
@@ -206,10 +206,10 @@ test('reopens cached collection reads offline and serves a cached app shell', as
   await context.setOffline(false);
   await page.goto(`/plants/${plant.id}`);
   page.once('dialog', dialog => dialog.accept());
-  await page.getByRole('button', { name: 'Delete photo' }).click();
+  await page.getByRole('button', { name: "Foto löschen" }).click();
   await expect(page.locator('.photo-grid img')).toHaveCount(0);
   await expect.poll(() => page.evaluate(async () => (await caches.keys()).filter(name => name.startsWith('kratzbaum-media-')))).toHaveLength(0);
-  await page.getByRole('button', { name: '← All plants' }).click();
+  await page.getByRole('button', { name: "← Alle Pflanzen" }).click();
   const otherTab = await context.newPage();
   await otherTab.goto('/plants');
   await expect(otherTab.getByText(name)).toBeVisible();

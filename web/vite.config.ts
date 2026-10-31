@@ -15,9 +15,10 @@ export default defineConfig({
       registerType: 'prompt',
       manifest: {
         id: '/',
-        name: 'kratzbaum · your plant collection',
+        lang: 'de',
+        name: 'kratzbaum · deine Pflanzensammlung',
         short_name: 'kratzbaum',
-        description: 'A calmer way to care for your plants.',
+        description: 'Ein entspannter Weg, deine Pflanzen zu pflegen.',
         theme_color: '#f6f5ef',
         background_color: '#f6f5ef',
         display: 'standalone',

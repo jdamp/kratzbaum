@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Page } from './fixtures';
 import { readFileSync } from 'node:fs';
 
 test.use({ serviceWorkers: 'block' });
@@ -9,7 +9,7 @@ test.afterEach(async ({ request }) => {
   for (const id of roomIDs) await request.delete(`/api/rooms/${id}`);
   plantIDs.clear(); roomIDs.clear();
 });
-const nav = (page: Page, name: string) => page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name, exact: true });
+const nav = (page: Page, name: string) => page.getByRole('navigation', { name: "Hauptnavigation" }).getByRole('button', { name, exact: true });
 
 async function plant(request: APIRequestContext, name: string) {
   const response = await request.post('/api/plants', { data: { name, watering_interval_days: 7 } });
@@ -20,8 +20,8 @@ async function plant(request: APIRequestContext, name: string) {
 
 test('room saves settle and accept another room while an older collection read is stalled', async ({ page, request }) => {
   await page.goto('/rooms');
-  await expect(page.getByLabel('New room name')).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Add room', exact: true })).toHaveCSS('cursor', 'not-allowed');
+  await expect(page.getByLabel("Name des neuen Raums")).toBeEnabled();
+  await expect(page.getByRole('button', { name: "Raum hinzufügen", exact: true })).toHaveCSS('cursor', 'not-allowed');
   const oldRooms = await (await request.get('/api/rooms')).json();
   const oldToday = await (await request.get('/api/today')).json();
   let release!: () => void, started!: () => void;
@@ -35,26 +35,26 @@ test('room saves settle and accept another room while an older collection read i
   let writes = 0;
   page.on('request', req => { if (req.method() === 'POST' && new URL(req.url()).pathname === '/api/rooms') writes++; });
   for (const name of [prefix + ' office', prefix + ' living']) {
-    await page.getByLabel('New room name').fill(name);
-    await expect(page.getByRole('button', { name: 'Add room', exact: true })).toBeEnabled();
+    await page.getByLabel("Name des neuen Raums").fill(name);
+    await expect(page.getByRole('button', { name: "Raum hinzufügen", exact: true })).toBeEnabled();
     const saved = page.waitForResponse(response => new URL(response.url()).pathname === '/api/rooms' && response.request().method() === 'POST' && response.status() === 201);
-    await page.getByRole('button', { name: 'Add room', exact: true }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+    await page.getByRole('button', { name: "Raum hinzufügen", exact: true }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
     roomIDs.add((await (await saved).json()).id);
     await expect(page.locator('.room-list').getByText(name, { exact: true })).toBeVisible();
-    await expect(page.getByText('Saving room changes…', { exact: true })).toHaveCount(0);
-    await expect(page.getByLabel('New room name')).toBeEnabled();
-    await expect(page.getByLabel('New room name')).toHaveValue('');
-    await expect(page.getByRole('button', { name: 'Add room', exact: true })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Add room', exact: true })).toHaveCSS('cursor', 'not-allowed');
-    await expect(page.locator('.room-success')).toHaveText(`Room “${name}” saved.`);
+    await expect(page.getByText("Raumänderungen werden gespeichert…", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Name des neuen Raums")).toBeEnabled();
+    await expect(page.getByLabel("Name des neuen Raums")).toHaveValue('');
+    await expect(page.getByRole('button', { name: "Raum hinzufügen", exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: "Raum hinzufügen", exact: true })).toHaveCSS('cursor', 'not-allowed');
+    await expect(page.locator('.room-success')).toHaveText(`Raum „${name}“ gespeichert.`);
   }
   expect(writes).toBe(2);
   // A rejected write keeps its input and releases the same lock.
-  await page.getByLabel('New room name').fill(prefix + ' office');
-  await page.getByRole('button', { name: 'Add room', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('already exists');
-  await expect(page.getByLabel('New room name')).toHaveValue(prefix + ' office');
-  await expect(page.getByRole('button', { name: 'Add room', exact: true })).toBeEnabled();
+  await page.getByLabel("Name des neuen Raums").fill(prefix + ' office');
+  await page.getByRole('button', { name: "Raum hinzufügen", exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText("bereits vorhanden");
+  await expect(page.getByLabel("Name des neuen Raums")).toHaveValue(prefix + ' office');
+  await expect(page.getByRole('button', { name: "Raum hinzufügen", exact: true })).toBeEnabled();
   const finishedRead = page.waitForResponse(response => new URL(response.url()).pathname === '/api/today');
   release();
   await finishedRead;
@@ -62,29 +62,29 @@ test('room saves settle and accept another room while an older collection read i
   // Releasing the older snapshot must not undo confirmed room changes or show a spinner.
   await expect(page.locator('.room-list').getByText(prefix + ' office', { exact: true })).toBeVisible();
   await expect(page.locator('.room-list').getByText(prefix + ' living', { exact: true })).toBeVisible();
-  await expect(page.getByText('Loading your collection…', { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Deine Sammlung wird geladen…", { exact: true })).toHaveCount(0);
   expect(writes).toBe(3);
 });
 
 test('Rooms has its own route after Calendar and all four destinations fit phones', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 760 });
   await page.goto('/rooms');
-  await expect(page.getByRole('heading', { name: 'Rooms', exact: true })).toBeVisible();
-  await expect(nav(page, 'Rooms')).toHaveAttribute('aria-current', 'page');
-  const buttons = page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button');
-  await expect(buttons).toHaveText([/Today/, /Plants/, /Calendar/, /Rooms/]);
+  await expect(page.getByRole('heading', { name: "Räume", exact: true })).toBeVisible();
+  await expect(nav(page, 'Räume')).toHaveAttribute('aria-current', 'page');
+  const buttons = page.getByRole('navigation', { name: "Hauptnavigation" }).getByRole('button');
+  await expect(buttons).toHaveText([/Heute/, /Pflanzen/, /Kalender/, /Räume/]);
   expect(await buttons.evaluateAll(nodes => nodes.every(node => { const box = node.getBoundingClientRect(); return box.width >= 44 && box.height >= 44; }))).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.reload();
-  await expect(page.getByLabel('New room name')).toBeEnabled();
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Collection settings' })).toBeVisible();
+  await expect(page.getByLabel("Name des neuen Raums")).toBeEnabled();
+  await page.getByRole('button', { name: "Einstellungen", exact: true }).click();
+  await expect(page.getByRole('heading', { name: "Sammlungseinstellungen" })).toBeVisible();
   await expect(page.locator('.room-manager')).toHaveCount(0);
-  await nav(page, 'Rooms').click();
+  await nav(page, 'Räume').click();
   await page.screenshot({ path: '/tmp/kratzbaum-rooms-phone.png', fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
-  const calendarBox = (await nav(page, 'Calendar').boundingBox())!;
-  const roomsBox = (await nav(page, 'Rooms').boundingBox())!;
+  const calendarBox = (await nav(page, 'Kalender').boundingBox())!;
+  const roomsBox = (await nav(page, 'Räume').boundingBox())!;
   expect(roomsBox.y).toBeGreaterThan(calendarBox.y);
   await page.screenshot({ path: '/tmp/kratzbaum-rooms-desktop.png', fullPage: true });
 });
@@ -97,8 +97,8 @@ test('upcoming photos and fallbacks open the correct plant without recording car
   }
   expect((await request.post(`/api/plants/${pictured.id}/photos`, { multipart: { image: { name: 'plant.jpg', mimeType: 'image/jpeg', buffer: readFileSync('/tmp/plant.jpg') } } })).status()).toBe(201);
   await page.goto('/');
-  const upcoming = page.getByRole('region', { name: 'Upcoming', exact: true });
-  const photo = upcoming.getByRole('link', { name: `Open ${pictured.name}`, exact: true });
+  const upcoming = page.getByRole('region', { name: "Demnächst", exact: true });
+  const photo = upcoming.getByRole('link', { name: `${pictured.name} öffnen`, exact: true });
   await expect(photo).toHaveAttribute('href', `/plants/${pictured.id}`);
   await expect(photo.locator('img')).toBeVisible();
   const opened = context.waitForEvent('page');
@@ -110,8 +110,8 @@ test('upcoming photos and fallbacks open the correct plant without recording car
   await photo.click();
   await expect(page).toHaveURL(new RegExp(`/plants/${pictured.id}$`));
   await expect(page.getByRole('heading', { name: pictured.name, exact: true })).toBeVisible();
-  await nav(page, 'Today').click();
-  const fallbackLink = upcoming.getByRole('link', { name: `Open ${fallback.name}`, exact: true });
+  await nav(page, 'Heute').click();
+  const fallbackLink = upcoming.getByRole('link', { name: `${fallback.name} öffnen`, exact: true });
   await expect(fallbackLink.locator('img')).toHaveCount(0);
   await fallbackLink.focus();
   await page.keyboard.press('Enter');
@@ -130,12 +130,12 @@ test('new notes use current server time and retain text on failure without a dat
   await page.clock.setFixedTime('2000-01-01T12:00:00Z');
   await page.goto(`/plants/${saved.id}`);
   await expect(page.getByRole('heading', { name: saved.name, exact: true })).toBeVisible();
-  await expect(page.getByLabel('Care note date and time')).toHaveCount(0);
-  await expect(page.getByText('Written at', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Datum und Uhrzeit der Pflegenotiz")).toHaveCount(0);
+  await expect(page.getByText("Geschrieben am", { exact: true })).toHaveCount(0);
   await expect(page.locator('.note-form input')).toHaveCount(0);
   await page.clock.setFixedTime('2000-01-02T12:00:00Z');
   const note = 'Checked the leaves today.';
-  await page.getByLabel('Care note', { exact: true }).fill(note);
+  await page.getByLabel("Pflegenotiz", { exact: true }).fill(note);
   let submissions = 0;
   await page.route(`**/api/plants/${saved.id}/activities`, async route => {
     if (route.request().method() !== 'POST') { await route.continue(); return; }
@@ -144,12 +144,12 @@ test('new notes use current server time and retain text on failure without a dat
     if (submissions === 1) await route.fulfill({ status: 500, json: { error: 'Note save temporarily unavailable' } });
     else await route.continue();
   });
-  await page.getByRole('button', { name: 'Add note', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('temporarily unavailable');
-  await expect(page.getByLabel('Care note', { exact: true })).toHaveValue(note);
+  await page.getByRole('button', { name: "Notiz hinzufügen", exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Die Anfrage ist fehlgeschlagen');
+  await expect(page.getByLabel("Pflegenotiz", { exact: true })).toHaveValue(note);
   const before = Date.now();
-  await page.getByRole('button', { name: 'Add note', exact: true }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
-  await expect(page.getByLabel('Care note', { exact: true })).toHaveValue('');
+  await page.getByRole('button', { name: "Notiz hinzufügen", exact: true }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+  await expect(page.getByLabel("Pflegenotiz", { exact: true })).toHaveValue('');
   const after = Date.now();
   const detail = await (await request.get(`/api/plants/${saved.id}`)).json();
   const notes = detail.activities.filter((activity: { type: string }) => activity.type === 'note');
@@ -158,10 +158,10 @@ test('new notes use current server time and retain text on failure without a dat
   expect(Date.parse(notes[0].occurred_at)).toBeLessThanOrEqual(after + 1000);
   expect(submissions).toBe(2);
   const activity = page.locator('.timeline-item').filter({ hasText: note });
-  await activity.getByRole('button', { name: 'Edit', exact: true }).click();
-  await expect(activity.getByLabel('Date and time', { exact: true })).toBeVisible();
-  await activity.getByLabel('Date and time', { exact: true }).fill('2026-10-01T09:00');
-  await activity.getByRole('button', { name: 'Save', exact: true }).click();
+  await activity.getByRole('button', { name: "Bearbeiten", exact: true }).click();
+  await expect(activity.getByLabel("Datum und Uhrzeit", { exact: true })).toBeVisible();
+  await activity.getByLabel("Datum und Uhrzeit", { exact: true }).fill('2026-10-01T09:00');
+  await activity.getByRole('button', { name: "Speichern", exact: true }).click();
   await expect(activity.locator('.activity-edit')).toHaveCount(0);
   const corrected = await (await request.get(`/api/plants/${saved.id}`)).json();
   expect(corrected.activities.find((activity: { id: string }) => activity.id === notes[0].id).occurred_at).toContain('2026-10-01');

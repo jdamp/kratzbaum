@@ -55,6 +55,7 @@ func (c Client) Identify(ctx context.Context, jpeg []byte) ([]Candidate, error) 
 	query := endpoint.Query()
 	query.Set("api-key", c.Key)
 	query.Del("project")
+	query.Set("lang", "de")
 	if !query.Has("include-related-images") {
 		query.Set("include-related-images", "false")
 	}
@@ -138,21 +139,21 @@ func ErrorMessage(err error) string { return Message(ErrorCode(err)) }
 func Message(code string) string {
 	switch code {
 	case "plantnet_not_configured":
-		return "PlantNet identification is not configured"
+		return "Die Pflanzenbestimmung mit PlantNet ist nicht eingerichtet."
 	case "plantnet_no_match":
-		return "PlantNet found no likely species"
+		return "PlantNet hat keine passende Art gefunden."
 	case "plantnet_auth":
-		return "PlantNet rejected the configured API key or account"
+		return "PlantNet hat den API-Schlüssel oder das Konto abgelehnt."
 	case "plantnet_request_rejected":
-		return "PlantNet rejected the identification request"
+		return "PlantNet hat die Bestimmungsanfrage abgelehnt."
 	case "plantnet_quota":
-		return "PlantNet quota is exhausted"
+		return "Das PlantNet-Kontingent ist aufgebraucht."
 	case "plantnet_timeout":
-		return "PlantNet did not respond in time"
+		return "PlantNet hat nicht rechtzeitig geantwortet."
 	case "plantnet_invalid_response":
-		return "PlantNet returned an invalid response"
+		return "PlantNet hat eine ungültige Antwort geliefert."
 	default:
-		return "PlantNet service is unavailable"
+		return "Der PlantNet-Dienst ist nicht verfügbar."
 	}
 }
 

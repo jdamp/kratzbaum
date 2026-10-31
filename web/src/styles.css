@@ -37,6 +37,7 @@
 @media(max-width:560px){.room-filter{max-width:none}.care-row{padding:12px;gap:10px}.care-photo{width:44px;height:52px}.care-row .soft-button{padding:9px 10px;font-size:12px}.room-manager{padding:16px}.room-actions{width:100%}.care-entry-dialog .modal-heading h2{font-size:22px}.modal select{font-size:14px}}
 
 button[aria-busy=true]:disabled{cursor:wait}
+.wiki-status{display:block;margin-top:6px;color:var(--muted);font-size:12px;font-weight:400;line-height:1.4}.wiki-status button{margin-left:4px}
 .plant-room-form{display:flex;flex-wrap:wrap;align-items:end;gap:12px;padding:16px;margin:16px 0;border:1px solid var(--line);border-radius:16px;background:var(--paper)}
 .plant-room-form label{display:grid;gap:7px;flex:1 1 180px;min-width:0;font-size:12px;font-weight:650;color:var(--muted)}
 .plant-room-form select{font:inherit;min-height:44px;width:100%;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--paper);color:var(--ink)}

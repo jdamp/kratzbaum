@@ -296,7 +296,8 @@ func (s *Server) photos(w http.ResponseWriter, r *http.Request) {
 }
 
 func failCode(w http.ResponseWriter, status int, code, message string) {
-	jsonOut(w, status, map[string]string{"error": message, "code": code})
+	w.Header().Set("Content-Language", "de")
+	jsonOut(w, status, map[string]string{"error": userMessage(message), "code": code})
 }
 func identificationMessage(code string) string { return identification.Message(code) }
 
@@ -521,7 +522,8 @@ func jsonOut(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 func fail(w http.ResponseWriter, status int, msg string) {
-	jsonOut(w, status, map[string]string{"error": msg})
+	w.Header().Set("Content-Language", "de")
+	jsonOut(w, status, map[string]string{"error": userMessage(msg)})
 }
 func (s *Server) spa(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -5,12 +5,21 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/kratzbaum/kratzbaum/internal/config"
 	"github.com/kratzbaum/kratzbaum/internal/storage"
 )
+
+func TestInvalidSignInStateIsReportedInGerman(t *testing.T) {
+	w := httptest.NewRecorder()
+	(&Manager{}).callback(w, httptest.NewRequest(http.MethodGet, "/auth/callback", nil))
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "Anmeldestatus") {
+		t.Fatalf("unexpected callback failure: %d %q", w.Code, w.Body.String())
+	}
+}
 
 func TestOIDCMiddlewareAndLogout(t *testing.T) {
 	dir := t.TempDir()

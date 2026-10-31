@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchMedia, get, send, uploadPhoto } from './api';
+import { ApiError, fetchMedia, get, send, uploadPhoto } from './api';
 import type { Plant, SpeciesCandidate } from './api';
 import { IdentificationReview, useIdentification, photoTypes } from './Identification';
+import { formatNumber } from './locale';
 
 export function CachedImage({ src, alt }: { src: string; alt: string }) {
   const [url, setUrl] = useState('');
@@ -35,7 +36,7 @@ export function PlantPhotos({ plant, available, offline, disabled = false, onCha
   };
   useEffect(() => {
     let active = true;
-    get<{ photos: Photo[] }>(`/api/plants/${plant.id}/photos`).then(result => { if (active) setPhotos(result.photos); }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'Could not load photos'); });
+    get<{ photos: Photo[] }>(`/api/plants/${plant.id}/photos`).then(result => { if (active) setPhotos(result.photos); }).catch(e => { if (active) setError(e instanceof ApiError ? e.message : 'Fotos konnten nicht geladen werden.'); });
     return () => { active = false; onBusyChange(false); };
   }, [plant.id, onBusyChange]);
   const confirm = async (candidate: SpeciesCandidate) => {
@@ -52,37 +53,37 @@ export function PlantPhotos({ plant, available, offline, disabled = false, onCha
   }, [identification.source]);
   return <>
     <section className="gallery">
-      <div className="section-title">Photos <span>{photos.length}</span><label className="text-button">{uploading ? 'Uploading…' : '＋ Add photo'}
+      <div className="section-title">Fotos <span>{formatNumber(photos.length)}</span><label className="text-button">{uploading ? 'Wird hochgeladen…' : '＋ Foto hinzufügen'}
         <input hidden type="file" accept={photoTypes} disabled={busy || offline} onChange={async e => {
           const file = e.target.files?.[0]; e.target.value = '';
           if (!file || pending.current) return;
           pending.current = true; setUploading(true); setError('');
           try { await uploadPhoto(plant.id, file); await refresh(); onChanged(); }
-          catch (e) { setError(e instanceof Error ? e.message : 'Photo upload failed'); }
+          catch (e) { setError(e instanceof ApiError ? e.message : 'Das Foto konnte nicht hochgeladen werden.'); }
           finally { pending.current = false; setUploading(false); }
         }}/>
       </label></div>
       {error && <p role="alert">{error}</p>}
-      <div className="photo-grid">{photos.map((photo, index) => <article key={photo.id} className="photo-card" aria-label={"Gallery photo " + (index + 1)}>
-        <CachedImage src={photo.filename} alt={'Photo of ' + plant.name}/>
+      <div className="photo-grid">{photos.map((photo, index) => <article key={photo.id} className="photo-card" aria-label={"Galeriefoto " + (index + 1)}>
+        <CachedImage src={photo.filename} alt={'Foto von ' + plant.name}/>
         <div className="photo-actions">
-          <button type="button" className="text-button" disabled={busy || offline || !available} onClick={event => { lastTrigger.current = event.currentTarget; void identification.start(photo.id); review.current?.focus(); review.current?.scrollIntoView({ block: 'nearest' }); }}>Identify this photo</button>
+          <button type="button" className="text-button" disabled={busy || offline || !available} onClick={event => { lastTrigger.current = event.currentTarget; void identification.start(photo.id); review.current?.focus(); review.current?.scrollIntoView({ block: 'nearest' }); }}>Pflanze auf diesem Foto bestimmen</button>
           <button type="button" className="text-button" disabled={busy || offline || plant.cover_photo_id === photo.id} onClick={async () => {
             try { await send(`/api/plants/${plant.id}/cover`, { photo_id: photo.id }, 'PUT'); onChanged(); }
-            catch (e) { setError(String(e)); }
-          }}>{plant.cover_photo_id === photo.id ? 'Cover photo' : 'Set cover'}</button>
-          <button type="button" className="delete-button" aria-label="Delete photo" disabled={busy || offline} onClick={async () => {
-            if (!window.confirm('Delete this plant photo?')) return;
+            catch (e) { setError(e instanceof ApiError ? e.message : 'Das Titelbild konnte nicht geändert werden.'); }
+          }}>{plant.cover_photo_id === photo.id ? 'Titelbild' : 'Als Titelbild festlegen'}</button>
+          <button type="button" className="delete-button" aria-label="Foto löschen" disabled={busy || offline} onClick={async () => {
+            if (!window.confirm('Dieses Pflanzenfoto löschen?')) return;
             try { await send(`/api/plants/${plant.id}/photos/${photo.id}`, undefined, 'DELETE'); if (identification.source === photo.id) identification.cancel(); await refresh(); onChanged(); }
-            catch (e) { setError(String(e)); }
+            catch (e) { setError(e instanceof ApiError ? e.message : 'Das Foto konnte nicht gelöscht werden.'); }
           }}>×</button>
         </div>
       </article>)}</div>
-      {(identification.source || identification.unavailable) && <section aria-label="Species identification" ref={review} tabIndex={-1} className="identification-source">
-        {identification.source && <p className="muted">Identifying gallery photo {photos.findIndex(photo => photo.id === identification.source) + 1}</p>}
+      {(identification.source || identification.unavailable) && <section aria-label="Pflanzenbestimmung" ref={review} tabIndex={-1} className="identification-source">
+        {identification.source && <p className="muted">Bestimmung anhand von Galeriefoto {photos.findIndex(photo => photo.id === identification.source) + 1}</p>}
         <IdentificationReview controller={identification}/>
       </section>}
-      {photos.length === 0 && <p className="muted">Add a photo to recognize your plant at a glance.</p>}
+      {photos.length === 0 && <p className="muted">Füge ein Foto hinzu, um deine Pflanze auf einen Blick zu erkennen.</p>}
     </section>
   </>;
 }

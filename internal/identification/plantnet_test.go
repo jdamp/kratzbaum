@@ -122,7 +122,7 @@ func TestUpstreamFailuresNeverExposeKey(t *testing.T) {
 }
 
 func TestProviderRequestContract(t *testing.T) {
-	for _, query := range []string{"", "?project=legacy&lang=de&include-related-images=true"} {
+	for _, query := range []string{"", "?project=legacy&lang=de&include-related-images=true", "?lang=en&include-related-images=true"} {
 		t.Run(query, func(t *testing.T) {
 			calls := 0
 			image := []byte{0xff, 0xd8, 0xff, 0x42}
@@ -136,7 +136,7 @@ func TestProviderRequestContract(t *testing.T) {
 				if r.Method != "POST" || r.URL.Path != "/v2/identify/all" || r.URL.Query().Get("api-key") != "private-test-key" {
 					t.Error("invalid endpoint or credential placement")
 				}
-				if query != "" && (r.URL.Query().Get("lang") != "de" || r.URL.Query().Get("include-related-images") != "true") {
+				if r.URL.Query().Get("lang") != "de" || (query != "" && r.URL.Query().Get("include-related-images") != "true") {
 					t.Error("custom query lost")
 				}
 				file, header, err := r.FormFile("images")

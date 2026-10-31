@@ -4,6 +4,7 @@ import type { Plant, PlantInput, Room } from './api';
 import { RoomManager } from './Rooms';
 import type { RoomChange } from './Rooms';
 import { Identification, photoTypes } from './Identification';
+import { dateOnly, everyDays } from './locale';
 
 
 function PhotoPicker({ file, disabled, onChange }: { file: File | null; disabled: boolean; onChange: (file: File | null) => void }) {
@@ -18,7 +19,7 @@ function PhotoPicker({ file, disabled, onChange }: { file: File | null; disabled
     return () => URL.revokeObjectURL(url);
   }, [file]);
   return <div className="creation-photo">
-    <label htmlFor="creation-photo-input">Plant photo · optional</label>
+    <label htmlFor="creation-photo-input">Pflanzenfoto · optional</label>
     <input ref={input} id="creation-photo-input" hidden type="file" accept={photoTypes} disabled={disabled} onChange={e => {
       const selected = e.target.files?.[0];
       e.target.value = '';
@@ -27,11 +28,11 @@ function PhotoPicker({ file, disabled, onChange }: { file: File | null; disabled
     <div className="creation-photo-card">
       {file ? <>
         <div className="creation-photo-selection">
-          {preview?.file === file && !failed ? <img src={preview.url} alt="Selected plant photo preview" onError={() => setFailed(true)}/> : <span className="creation-photo-fallback" aria-hidden="true">Photo</span>}
-          <div><b>{file.name}</b><p className="muted">{failed ? 'Preview unavailable. Your photo can still be uploaded.' : 'Selected photo. First photo becomes the cover.'}</p></div>
+          {preview?.file === file && !failed ? <img src={preview.url} alt="Vorschau des ausgewählten Pflanzenfotos" onError={() => setFailed(true)}/> : <span className="creation-photo-fallback" aria-hidden="true">Foto</span>}
+          <div><b>{file.name}</b><p className="muted">{failed ? 'Keine Vorschau verfügbar. Dein Foto kann trotzdem hochgeladen werden.' : 'Ausgewähltes Foto. Das erste Foto wird zum Titelbild.'}</p></div>
         </div>
-        <div className="creation-photo-actions"><button type="button" className="secondary" disabled={disabled} onClick={() => input.current?.click()}>Replace</button><button type="button" className="secondary" disabled={disabled} onClick={() => onChange(null)}>Remove</button></div>
-      </> : <><b>Add a photo to recognize your plant</b><p className="muted">JPG, PNG, WebP or HEIC</p><button type="button" className="secondary" disabled={disabled} onClick={() => input.current?.click()}>Choose photo</button></>}
+        <div className="creation-photo-actions"><button type="button" className="secondary" disabled={disabled} onClick={() => input.current?.click()}>Ersetzen</button><button type="button" className="secondary" disabled={disabled} onClick={() => onChange(null)}>Entfernen</button></div>
+      </> : <><b>Füge ein Foto hinzu, um deine Pflanze wiederzuerkennen</b><p className="muted">JPG, PNG, WebP oder HEIC</p><button type="button" className="secondary" disabled={disabled} onClick={() => input.current?.click()}>Foto auswählen</button></>}
     </div>
   </div>;
 }
@@ -88,7 +89,7 @@ export function PlantDialog({ editing, available, offline, rooms, roomsUnavailab
         confirmedPlant.current = saved;
         setSavedPlant(saved);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Unable to save plant');
+        setError(e instanceof ApiError ? e.message : 'Die Pflanze konnte nicht gespeichert werden.');
         setPhase('draft');
         inFlight.current = false;
         return;
@@ -98,7 +99,7 @@ export function PlantDialog({ editing, available, offline, rooms, roomsUnavailab
       setPhase('uploading');
       try { await uploadPhoto(confirmedPlant.current.id, file); }
       catch (e) {
-        const message = e instanceof ApiError && e.status === 0 ? 'The photo upload could not be confirmed. Check your connection before retrying.' : e instanceof Error ? e.message : 'The photo could not be uploaded.';
+        const message = e instanceof ApiError && e.status === 0 ? 'Der Foto-Upload konnte nicht bestätigt werden. Prüfe vor einem erneuten Versuch deine Verbindung.' : e instanceof ApiError ? e.message : 'Das Foto konnte nicht hochgeladen werden.';
         setError(message);
         setPhase('photo-error');
         inFlight.current = false;
@@ -118,21 +119,21 @@ export function PlantDialog({ editing, available, offline, rooms, roomsUnavailab
         else if (!e.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) { e.preventDefault(); first.focus(); }
       }
     }}>
-      <div className="modal-heading"><div><p className="eyebrow">{editing ? 'COLLECTION DETAILS' : 'NEW ADDITION'}</p><h2 id="form-title">{editing ? 'Edit plant' : phase === 'photo-error' ? 'Finish adding your plant' : 'Add a plant'}</h2></div><button className="icon-button" aria-label="Close" disabled={saving} onClick={close}>×</button></div>
-      {error && <div className="alert creation-error" role="alert" tabIndex={-1}>{savedPlant && <b>Plant saved. Photo needs attention.</b>}<span>{error}</span>{savedPlant && <span>Your plant details are safe.</span>}</div>}
-      {saving && <p className="creation-progress" role="status">{phase === 'saving' ? 'Saving plant…' : 'Plant saved. Uploading photo…'}</p>}
-      {managingRooms && <div><button type="button" className="text-button" onClick={() => setManagingRooms(false)}>← Back to plant</button><RoomManager rooms={rooms} offline={offline} unavailable={roomsUnavailable} onChanged={onRoomsChanged}/></div>}
+      <div className="modal-heading"><div><p className="eyebrow">{editing ? 'SAMMLUNGSDETAILS' : 'NEUZUGANG'}</p><h2 id="form-title">{editing ? 'Pflanze bearbeiten' : phase === 'photo-error' ? 'Pflanze fertig hinzufügen' : 'Pflanze hinzufügen'}</h2></div><button className="icon-button" aria-label="Schließen" disabled={saving} onClick={close}>×</button></div>
+      {error && <div className="alert creation-error" role="alert" tabIndex={-1}>{savedPlant && <b>Pflanze gespeichert. Beim Foto ist ein Problem aufgetreten.</b>}<span>{error}</span>{savedPlant && <span>Deine Pflanzendaten sind gespeichert.</span>}</div>}
+      {saving && <p className="creation-progress" role="status">{phase === 'saving' ? 'Pflanze wird gespeichert…' : 'Pflanze gespeichert. Foto wird hochgeladen…'}</p>}
+      {managingRooms && <div><button type="button" className="text-button" onClick={() => setManagingRooms(false)}>← Zurück zur Pflanze</button><RoomManager rooms={rooms} offline={offline} unavailable={roomsUnavailable} onChanged={onRoomsChanged}/></div>}
       <form onSubmit={submit} hidden={managingRooms}>
-        {savedPlant && <div className="saved-plant-summary"><h3>{savedPlant.name}</h3><p className="muted">{[savedPlant.scientific_name, savedPlant.common_name].filter(Boolean).join(' · ')}</p><p className="muted">{savedPlant.care_start_date ? `Care started ${savedPlant.care_start_date}` : 'Care starts with your first recorded activity'} · Water every {savedPlant.watering_interval_days} days</p></div>}
+        {savedPlant && <div className="saved-plant-summary"><h3>{savedPlant.name}</h3><p className="muted">{[savedPlant.scientific_name, savedPlant.common_name].filter(Boolean).join(' · ')}</p><p className="muted">{savedPlant.care_start_date ? `Pflegebeginn: ${dateOnly(savedPlant.care_start_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}` : 'Die Pflege beginnt mit dem ersten Eintrag'} · Gießen: {everyDays(savedPlant.watering_interval_days)}</p></div>}
         {!editing && <PhotoPicker file={file} disabled={busy} onChange={setFile}/>}
         {!editing && !savedPlant && <Identification source={file} available={available} offline={offline} disabled={saving} onBusyChange={identificationBusy} onConfirm={candidate => { setScientificName(candidate.scientific_name); setCommonName(candidate.common_names?.[0] ?? ''); }}/>}
         <fieldset className="plant-fields" disabled={busy || !!savedPlant || offline} hidden={!!savedPlant}>
-          <label>Plant name<input name="name" required maxLength={120} autoFocus defaultValue={editing?.name??''} placeholder="Monstera by the window"/></label><label>Scientific name<input name="scientific_name" value={scientificName} onChange={e => { setScientificName(e.target.value); setCommonName(''); }} placeholder="Monstera deliciosa"/></label><label>Room · optional<select name="room_id" value={roomID} onChange={e => setRoomID(e.target.value)} disabled={roomsUnavailable || offline}><option value="">Unassigned</option>{rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}{roomID && !rooms.some(room => room.id === roomID) && <option value={roomID}>Room information unavailable</option>}</select></label>{roomsUnavailable && <p className="muted">Room information is unavailable. Existing assignment will be kept.</p>}<button type="button" className="text-button manage-rooms-button" onClick={() => setManagingRooms(true)}>Manage rooms</button><label>Care started<input name="care_start_date" type="date" defaultValue={editing?.care_start_date??''} aria-describedby="care-start-help"/></label><p id="care-start-help" className="muted">Optional. Leave blank to start watering and fertilizing separately when you record actual care. A supplied date is used until the first activity of each type.</p><label>Water every <span className="inline-input"><input name="watering_interval_days" type="number" min="1" max="365" defaultValue={editing?.watering_interval_days??7} required/> days</span></label><div className="two-fields"><label>Summer fertilizer interval (days)<input name="summer" type="number" min="1" max="365" defaultValue={editing?.summer_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="summer_paused" defaultChecked={editing?.summer_fertilizing_paused??false}/> Pause in summer</span></label><label>Winter fertilizer interval (days)<input name="winter" type="number" min="1" max="365" defaultValue={editing?.winter_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="winter_paused" defaultChecked={editing?.winter_fertilizing_paused??false}/> Pause in winter</span></label></div><label>Care notes<textarea name="notes" rows={3} defaultValue={editing?.notes??''} placeholder="Light, humidity, advice to remember…"/></label>
+          <label>Pflanzenname<input name="name" required maxLength={120} autoFocus defaultValue={editing?.name??''} placeholder="Monstera am Fenster"/></label><label>Wissenschaftlicher Name<input name="scientific_name" value={scientificName} onChange={e => { setScientificName(e.target.value); setCommonName(''); }} placeholder="Monstera deliciosa"/></label><label>Raum · optional<select name="room_id" value={roomID} onChange={e => setRoomID(e.target.value)} disabled={roomsUnavailable || offline}><option value="">Nicht zugeordnet</option>{rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}{roomID && !rooms.some(room => room.id === roomID) && <option value={roomID}>Rauminformationen nicht verfügbar</option>}</select></label>{roomsUnavailable && <p className="muted">Rauminformationen sind nicht verfügbar. Die bestehende Zuordnung bleibt erhalten.</p>}<button type="button" className="text-button manage-rooms-button" onClick={() => setManagingRooms(true)}>Räume verwalten</button><label>Pflegebeginn<input name="care_start_date" type="date" defaultValue={editing?.care_start_date??''} aria-describedby="care-start-help"/></label><p id="care-start-help" className="muted">Optional. Ohne Datum beginnen Gieß- und Düngeplan jeweils mit dem ersten Pflegeeintrag. Ein angegebenes Datum gilt bis zum ersten Eintrag der jeweiligen Art.</p><label>Gießabstand (Tage) <span className="inline-input"><input name="watering_interval_days" type="number" min="1" max="365" defaultValue={editing?.watering_interval_days??7} required/></span></label><div className="two-fields"><label>Düngeabstand im Sommer (Tage)<input name="summer" type="number" min="1" max="365" defaultValue={editing?.summer_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="summer_paused" defaultChecked={editing?.summer_fertilizing_paused??false}/> Im Sommer pausieren</span></label><label>Düngeabstand im Winter (Tage)<input name="winter" type="number" min="1" max="365" defaultValue={editing?.winter_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="winter_paused" defaultChecked={editing?.winter_fertilizing_paused??false}/> Im Winter pausieren</span></label></div><label>Pflegenotizen<textarea name="notes" rows={3} defaultValue={editing?.notes??''} placeholder="Licht, Luftfeuchtigkeit, wichtige Hinweise…"/></label>
         </fieldset>
         <div className={'modal-actions' + (savedPlant ? ' creation-recovery-actions' : '')}>
-          {savedPlant ? <><button className="primary" disabled={busy || !file}>{busy ? 'Uploading photo…' : 'Retry photo'}</button><button type="button" className="secondary" disabled={busy} onClick={close}>Continue without photo</button></> : <><button type="button" className="secondary" disabled={saving} onClick={close}>Cancel</button><button className="primary" disabled={busy || offline}>{saving ? 'Saving plant…' : editing ? 'Save changes' : 'Add plant'}</button></>}
+          {savedPlant ? <><button className="primary" disabled={busy || !file}>{busy ? 'Foto wird hochgeladen…' : 'Foto erneut hochladen'}</button><button type="button" className="secondary" disabled={busy} onClick={close}>Ohne Foto fortfahren</button></> : <><button type="button" className="secondary" disabled={saving} onClick={close}>Abbrechen</button><button className="primary" disabled={busy || offline}>{saving ? 'Pflanze wird gespeichert…' : editing ? 'Änderungen speichern' : 'Pflanze hinzufügen'}</button></>}
         </div>
-        {savedPlant && !busy && <p className="muted">Retry uses this saved plant.</p>}
+        {savedPlant && !busy && <p className="muted">Beim erneuten Versuch wird diese gespeicherte Pflanze verwendet.</p>}
       </form>
     </section>
   </div>;

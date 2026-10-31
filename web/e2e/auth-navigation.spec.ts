@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import { createServer } from 'node:http';
 import type { Server } from 'node:http';
@@ -88,7 +88,7 @@ async function controlledPage(page: Page, origin: string) {
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
-  await expect(page.getByRole('link', { name: 'Continue with your identity provider' })).toBeVisible();
+  await expect(page.getByRole('link', { name: "Mit deinem Anmeldedienst fortfahren" })).toBeVisible();
 }
 
 async function noAuthCacheEntries(page: Page) {
@@ -101,7 +101,7 @@ async function noAuthCacheEntries(page: Page) {
 
 test('controlled login and callback reach the server without caching authentication', async ({ page, context, auth }) => {
   await controlledPage(page, auth.origin);
-  await page.getByRole('link', { name: 'Continue with your identity provider' }).click();
+  await page.getByRole('link', { name: "Mit deinem Anmeldedienst fortfahren" }).click();
   await expect.poll(() => auth.requests.filter(url => url.pathname === '/auth/login').length).toBe(1);
   await expect(page).toHaveURL(`${auth.providerOrigin}/authorize`);
   await expect(page.getByRole('heading', { name: 'Test identity provider' })).toBeVisible();
@@ -126,11 +126,11 @@ test('controlled worker retains offline app navigation but never serves the shel
   await controlledPage(page, auth.origin);
   auth.authenticated = true;
   await page.goto(`${auth.origin}/plants`);
-  await expect(page.getByRole('heading', { name: 'Your plants' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Deine Pflanzen" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('kratzbaum-context') || '{}').authenticated)).toBe(true);
   await context.setOffline(true);
   await page.goto(`${auth.origin}/plants`);
-  await expect(page.getByRole('heading', { name: 'Your plants' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Deine Pflanzen" })).toBeVisible();
   expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
   await expect(page.goto(`${auth.origin}/auth/login`)).rejects.toThrow(/net::ERR_/);
   expect(auth.requests).toHaveLength(0);
@@ -144,7 +144,7 @@ for (const accept of [false, true]) {
     await controlledPage(page, auth.origin);
     // Confirm the old controller has the actual regression before testing its replacement.
     await page.goto(`${auth.origin}/auth/login`);
-    await expect(page.getByRole('link', { name: 'Continue with your identity provider' })).toBeVisible();
+    await expect(page.getByRole('link', { name: "Mit deinem Anmeldedienst fortfahren" })).toBeVisible();
     expect(auth.requests).toHaveLength(0);
     await page.goto(auth.origin);
     await page.evaluate(() => {
@@ -158,7 +158,7 @@ for (const accept of [false, true]) {
       });
     });
     const dialogHandled = new Promise<void>(resolve => page.once('dialog', async dialog => {
-      expect(dialog.message()).toContain('update is ready');
+      expect(dialog.message()).toContain('Update ist bereit');
       if (accept) await dialog.accept(); else await dialog.dismiss();
       resolve();
     }));
@@ -169,9 +169,9 @@ for (const accept of [false, true]) {
     if (accept) {
       await reloaded;
       await expect.poll(() => page.evaluate(() => localStorage.getItem('test-controller-changed'))).toBe('yes');
-      await expect(page.getByRole('link', { name: 'Continue with your identity provider' })).toBeVisible();
+      await expect(page.getByRole('link', { name: "Mit deinem Anmeldedienst fortfahren" })).toBeVisible();
       expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
-      await page.getByRole('link', { name: 'Continue with your identity provider' }).click();
+      await page.getByRole('link', { name: "Mit deinem Anmeldedienst fortfahren" }).click();
       await expect.poll(() => auth.requests.filter(url => url.pathname === '/auth/login').length).toBe(1);
       await expect(page).toHaveURL(`${auth.providerOrigin}/authorize`);
     } else {
@@ -188,10 +188,10 @@ for (const path of ['/plants', '/plants/00000000-0000-0000-0000-000000000001', '
     await page.setViewportSize({width:320,height:740});
     await page.goto(auth.origin + path);
     await expect(page).toHaveURL(auth.origin + '/login');
-    await expect(page.getByRole('heading', {name:'Sign in to your collection'})).toBeVisible();
+    await expect(page.getByRole('heading', {name:"Bei deiner Sammlung anmelden"})).toBeVisible();
     await expect(page.getByRole('navigation')).toHaveCount(0);
-    await expect(page.getByRole('button', {name:/Add plant/})).toHaveCount(0);
-    const link = page.getByRole('link', {name:'Continue with your identity provider'});
+    await expect(page.getByRole('button', {name:/Pflanze hinzufügen/})).toHaveCount(0);
+    const link = page.getByRole('link', {name:"Mit deinem Anmeldedienst fortfahren"});
     await expect(link).toHaveAttribute('href','/auth/login');
     await page.keyboard.press('Tab');
     await expect(link).toBeFocused();
@@ -205,36 +205,36 @@ for (const path of ['/plants', '/plants/00000000-0000-0000-0000-000000000001', '
 test('bootstrap error can be retried without exposing collection controls', async ({page, auth}) => {
   auth.bootstrapFailure = true;
   await page.goto(auth.origin + '/login');
-  await expect(page.getByRole('alert')).toContainText('Sign-in service unavailable');
+  await expect(page.getByRole('alert')).toContainText('Die Anfrage ist fehlgeschlagen');
   await expect(page.getByRole('navigation')).toHaveCount(0);
-  await expect(page.getByRole('link', {name:'Continue with your identity provider'})).toHaveCount(0);
+  await expect(page.getByRole('link', {name:"Mit deinem Anmeldedienst fortfahren"})).toHaveCount(0);
   auth.bootstrapFailure = false;
-  await page.getByRole('button', {name:'Try again'}).click();
-  await expect(page.getByRole('link', {name:'Continue with your identity provider'})).toBeVisible();
+  await page.getByRole('button', {name:'Erneut versuchen'}).click();
+  await expect(page.getByRole('link', {name:"Mit deinem Anmeldedienst fortfahren"})).toBeVisible();
 });
 
 test('signed-out offline login has no active sign-in action', async ({page, context, auth}) => {
   await controlledPage(page, auth.origin);
   await context.setOffline(true);
-  await expect(page.getByRole('button', {name:'Sign-in unavailable offline'})).toBeDisabled();
+  await expect(page.getByRole('button', {name:'Anmeldung offline nicht verfügbar'})).toBeDisabled();
   await page.goto(auth.origin + '/login');
-  await expect(page.getByRole('status')).toHaveText('Connect to the server to sign in.');
-  await expect(page.getByRole('link', {name:'Continue with your identity provider'})).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText("Verbinde dich mit dem Server, um dich anzumelden.");
+  await expect(page.getByRole('link', {name:"Mit deinem Anmeldedienst fortfahren"})).toHaveCount(0);
   await context.setOffline(false);
-  await expect(page.getByRole('link', {name:'Continue with your identity provider'})).toBeVisible();
+  await expect(page.getByRole('link', {name:"Mit deinem Anmeldedienst fortfahren"})).toBeVisible();
 });
 
 test('authenticated login bypasses to collection and denied access closes editing', async ({page, auth}) => {
   auth.authenticated = true;
   await page.goto(auth.origin + '/login');
   await expect(page).toHaveURL(auth.origin + '/');
-  await expect(page.getByRole('heading', {name:'Today',exact:true})).toBeVisible();
-  await page.getByRole('navigation', {name:'Main navigation'}).getByRole('button', {name:'Plants'}).click();
-  await page.getByRole('button', {name:'＋ Add plant',exact:true}).click();
+  await expect(page.getByRole('heading', {name:"Heute",exact:true})).toBeVisible();
+  await page.getByRole('navigation', {name:"Hauptnavigation"}).getByRole('button', {name:"Pflanzen"}).click();
+  await page.getByRole('button', {name:'＋ Pflanze hinzufügen',exact:true}).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('kratzbaum:access-denied')));
   await expect(page).toHaveURL(auth.origin + '/login');
-  await expect(page.getByRole('heading', {name:'Sign in to your collection'})).toBeVisible();
+  await expect(page.getByRole('heading', {name:"Bei deiner Sammlung anmelden"})).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('navigation')).toHaveCount(0);
 });
@@ -242,5 +242,5 @@ test('authenticated login bypasses to collection and denied access closes editin
 test('open access bypasses the dedicated login route', async ({page, baseURL}) => {
   await page.goto(baseURL + '/login');
   await expect(page).toHaveURL(baseURL + '/');
-  await expect(page.getByRole('heading', {name:'Today',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading', {name:"Heute",exact:true})).toBeVisible();
 });

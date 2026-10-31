@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { get, send } from './api';
+import { ApiError, get, send } from './api';
 import type { Plant, PlantInput, Room } from './api';
 
 export function PlantRoom({ plant, rooms, offline, unavailable, disabled, onBusyChange, onSaveStart, onSaved }: {
@@ -21,7 +21,7 @@ export function PlantRoom({ plant, rooms, offline, unavailable, disabled, onBusy
   }, [onBusyChange]);
   const validRoom = !roomID || rooms.some(room => room.id === roomID);
   const unchanged = roomID === (plant.room_id ?? '');
-  return <form className="plant-room-form" aria-label="Plant room" aria-busy={busy} onSubmit={async event => {
+  return <form className="plant-room-form" aria-label="Raum der Pflanze" aria-busy={busy} onSubmit={async event => {
     event.preventDefault();
     if (pending.current || !canWrite.current || unchanged || !validRoom) return;
     pending.current = true; setBusy(true); onBusyChange(true); onSaveStart(); setError(''); setStatus('');
@@ -40,23 +40,23 @@ export function PlantRoom({ plant, rooms, offline, unavailable, disabled, onBusy
       };
       const saved = await send<Plant>(`/api/plants/${plant.id}`, input, 'PUT');
       onSaved(saved);
-      if (active.current) setStatus('Room assignment saved.');
+      if (active.current) setStatus('Raumzuordnung gespeichert.');
     } catch (e) {
-      if (active.current) setError(e instanceof Error ? e.message : 'Could not change the plant’s room');
+      if (active.current) setError(e instanceof ApiError ? e.message : 'Der Raum der Pflanze konnte nicht geändert werden.');
     } finally {
       pending.current = false;
       if (active.current) { setBusy(false); onBusyChange(false); }
     }
   }}>
-    <label>Room<select value={roomID} disabled={busy || offline || unavailable || disabled} onChange={event => {
+    <label>Raum<select value={roomID} disabled={busy || offline || unavailable || disabled} onChange={event => {
       setRoomID(event.target.value); setError(''); setStatus('');
     }}>
-      <option value="">Unassigned</option>
+      <option value="">Nicht zugeordnet</option>
       {rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
-      {!validRoom && <option value={roomID}>{unavailable ? 'Room information unavailable' : 'Room no longer available'}</option>}
+      {!validRoom && <option value={roomID}>{unavailable ? 'Rauminformationen nicht verfügbar' : 'Raum nicht mehr verfügbar'}</option>}
     </select></label>
-    <button className="primary" aria-busy={busy} disabled={busy || offline || unavailable || disabled || unchanged || !validRoom}>{busy ? 'Saving room…' : 'Save room'}</button>
-    {offline ? <p className="muted" role="status">You are offline. Room changes are unavailable.</p> : unavailable && <p className="muted" role="status">Room information is unavailable. Retry loading your collection.</p>}
+    <button className="primary" aria-busy={busy} disabled={busy || offline || unavailable || disabled || unchanged || !validRoom}>{busy ? 'Raum wird gespeichert…' : 'Raum speichern'}</button>
+    {offline ? <p className="muted" role="status">Du bist offline. Räume können nicht geändert werden.</p> : unavailable && <p className="muted" role="status">Rauminformationen sind nicht verfügbar. Lade deine Sammlung erneut.</p>}
     {status && <p className="muted" role="status">{status}</p>}
     {error && <p className="alert" role="alert">{error}</p>}
   </form>;

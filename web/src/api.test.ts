@@ -3,6 +3,17 @@ import { finishPendingLogout, get, identifyDraft, identifyPlantFile, identifySav
 
 afterEach(() => vi.unstubAllGlobals());
 
+describe('German error feedback', () => {
+  it('shows safe localized server errors and hides unknown technical details', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('{"error":"Ein Raum mit diesem Namen ist bereits vorhanden."}', { status: 400, headers: { 'Content-Language': 'de' } }))
+      .mockResolvedValueOnce(new Response('{"error":"private technical detail"}', { status: 500 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(get('/api/rooms')).rejects.toMatchObject({ status: 400, message: 'Ein Raum mit diesem Namen ist bereits vorhanden.' });
+    await expect(get('/api/rooms')).rejects.toMatchObject({ status: 500, message: 'Die Anfrage ist fehlgeschlagen (500). Bitte versuche es erneut.' });
+  });
+});
+
 describe('collection cache contexts', () => {
   it('separates the same collection identity across authentication modes', async () => {
     const fetchMock = vi.fn().mockImplementation(async () => new Response('{}', { status: 200 }));

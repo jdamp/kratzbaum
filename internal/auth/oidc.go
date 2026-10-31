@@ -67,19 +67,20 @@ func (m *Manager) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /auth/logout", m.logout)
 }
 func (m *Manager) login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Language", "de")
 	state, err := randomToken(32)
 	if err != nil {
-		http.Error(w, "Unable to start sign-in", 500)
+		http.Error(w, "Die Anmeldung konnte nicht gestartet werden.", 500)
 		return
 	}
 	verifier, err := randomToken(32)
 	if err != nil {
-		http.Error(w, "Unable to start sign-in", 500)
+		http.Error(w, "Die Anmeldung konnte nicht gestartet werden.", 500)
 		return
 	}
 	nonce, err := randomToken(32)
 	if err != nil {
-		http.Error(w, "Unable to start sign-in", 500)
+		http.Error(w, "Die Anmeldung konnte nicht gestartet werden.", 500)
 		return
 	}
 	m.mu.Lock()
@@ -89,10 +90,11 @@ func (m *Manager) login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, m.oauth.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), oauth2.SetAuthURLParam("nonce", nonce)), http.StatusFound)
 }
 func (m *Manager) callback(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Language", "de")
 	state := r.URL.Query().Get("state")
 	cookie, err := r.Cookie("kratzbaum_oidc_state")
 	if err != nil || state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
-		http.Error(w, "Invalid sign-in state", http.StatusBadRequest)
+		http.Error(w, "Der Anmeldestatus ist ungültig. Bitte melde dich erneut an.", http.StatusBadRequest)
 		return
 	}
 	m.mu.Lock()
@@ -100,26 +102,26 @@ func (m *Manager) callback(w http.ResponseWriter, r *http.Request) {
 	delete(m.attempts, storage.HashSecret(state))
 	m.mu.Unlock()
 	if !ok || time.Now().After(a.expires) {
-		http.Error(w, "Sign-in request expired", http.StatusBadRequest)
+		http.Error(w, "Die Anmeldeanfrage ist abgelaufen. Bitte versuche es erneut.", http.StatusBadRequest)
 		return
 	}
 	if providerErr := r.URL.Query().Get("error"); providerErr != "" {
-		http.Error(w, "Sign-in was not completed", http.StatusBadRequest)
+		http.Error(w, "Die Anmeldung wurde nicht abgeschlossen.", http.StatusBadRequest)
 		return
 	}
 	token, err := m.oauth.Exchange(r.Context(), r.URL.Query().Get("code"), oauth2.VerifierOption(a.verifier))
 	if err != nil {
-		http.Error(w, "Sign-in could not be verified", http.StatusUnauthorized)
+		http.Error(w, "Die Anmeldung konnte nicht überprüft werden.", http.StatusUnauthorized)
 		return
 	}
 	raw, ok := token.Extra("id_token").(string)
 	if !ok {
-		http.Error(w, "Identity provider returned no ID token", http.StatusUnauthorized)
+		http.Error(w, "Der Anmeldedienst hat keinen Identitätsnachweis geliefert.", http.StatusUnauthorized)
 		return
 	}
 	idToken, err := m.verifier.Verify(r.Context(), raw)
 	if err != nil {
-		http.Error(w, "Identity token is invalid", http.StatusUnauthorized)
+		http.Error(w, "Der Identitätsnachweis ist ungültig.", http.StatusUnauthorized)
 		return
 	}
 	var claims struct {
@@ -129,7 +131,7 @@ func (m *Manager) callback(w http.ResponseWriter, r *http.Request) {
 		Nonce     string `json:"nonce"`
 	}
 	if err := idToken.Claims(&claims); err != nil || claims.Subject == "" || subtle.ConstantTimeCompare([]byte(claims.Nonce), []byte(a.nonce)) != 1 {
-		http.Error(w, "Identity token claims are invalid", http.StatusUnauthorized)
+		http.Error(w, "Die Angaben im Identitätsnachweis sind ungültig.", http.StatusUnauthorized)
 		return
 	}
 	if claims.Name == "" {
@@ -137,18 +139,18 @@ func (m *Manager) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionToken, err := randomToken(32)
 	if err != nil {
-		http.Error(w, "Unable to create session", 500)
+		http.Error(w, "Die Sitzung konnte nicht erstellt werden.", 500)
 		return
 	}
 	csrf, err := randomToken(32)
 	if err != nil {
-		http.Error(w, "Unable to create session", 500)
+		http.Error(w, "Die Sitzung konnte nicht erstellt werden.", 500)
 		return
 	}
 	identity := m.issuer + "|" + claims.Subject
 	session := storage.Session{Hash: storage.HashSecret(sessionToken), Identity: identity, Issuer: m.issuer, Subject: claims.Subject, DisplayName: claims.Name, CSRF: csrf, ExpiresAt: time.Now().Add(m.ttl)}
 	if err := m.store.SaveSession(r.Context(), session); err != nil {
-		http.Error(w, "Unable to create session", 500)
+		http.Error(w, "Die Sitzung konnte nicht erstellt werden.", 500)
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: "kratzbaum_session", Value: sessionToken, Path: "/", MaxAge: int(m.ttl.Seconds()), HttpOnly: true, Secure: m.secure, SameSite: http.SameSiteLaxMode})
@@ -167,6 +169,7 @@ func (m *Manager) Resolve(r *http.Request) (Identity, error) {
 	return Identity{Key: session.Identity, Issuer: session.Issuer, Subject: session.Subject, Name: session.DisplayName, CSRF: session.CSRF, Authenticated: true}, nil
 }
 func (m *Manager) logout(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Language", "de")
 	identity, err := m.Resolve(r)
 	if err != nil {
 		clearSession(w, m.secure)
@@ -175,7 +178,7 @@ func (m *Manager) logout(w http.ResponseWriter, r *http.Request) {
 	}
 	cookie, _ := r.Cookie("kratzbaum_session")
 	if err := validateWrite(r, identity); err != nil {
-		http.Error(w, "Request could not be verified", http.StatusForbidden)
+		http.Error(w, "Die Anfrage konnte nicht überprüft werden.", http.StatusForbidden)
 		return
 	}
 	_ = m.store.DeleteSession(r.Context(), storage.HashSecret(cookie.Value))
@@ -211,15 +214,17 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
 		identity, err := m.Resolve(r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Language", "de")
 			w.WriteHeader(http.StatusUnauthorized)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Sign in is required", "login_url": "/auth/login"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Bitte melde dich an.", "login_url": "/auth/login"})
 			return
 		}
 		if r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS" {
 			if err := validateWrite(r, identity); err != nil {
 				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Content-Language", "de")
 				w.WriteHeader(http.StatusForbidden)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "Request could not be verified"})
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "Die Anfrage konnte nicht überprüft werden."})
 				return
 			}
 		}
