@@ -101,7 +101,7 @@ test.describe('direct plant assignment', () => {
     const select = form.getByRole('combobox', { name: 'Room', exact: true });
     const save = form.getByRole('button', { name: 'Save room', exact: true });
     await expect(select).toHaveValue('');
-    await expect(page.getByRole('button', { name: 'Choose identification photo', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Identify this photo', exact: true })).toBeEnabled();
     await expect(save).toBeDisabled();
     // An unrelated edit after opening detail must be preserved by the room-only intent.
     const latest = await detail(request, saved.id);
@@ -123,13 +123,13 @@ test.describe('direct plant assignment', () => {
     await expect(form).toHaveAttribute('aria-busy', 'true');
     await expect(form.getByRole('button', { name: 'Saving room…', exact: true })).toHaveCSS('cursor', 'wait');
     await expect(select).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Choose identification photo', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Identify this photo', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Edit plant and care schedule' })).toBeDisabled();
     writeGate.release();
     await expect(form.getByRole('status')).toHaveText('Room assignment saved.');
     await expect(save).toBeDisabled();
     expect(puts).toBe(1);
-    await expect(page.getByRole('button', { name: 'Choose identification photo', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Identify this photo', exact: true })).toBeEnabled();
     await expect(page.getByText(`Room: ${office.name}`, { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     for (const control of [select, save]) {
