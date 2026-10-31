@@ -43,3 +43,9 @@ button[aria-busy=true]:disabled{cursor:wait}
 .plant-room-form select{font:inherit;min-height:44px;width:100%;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--paper);color:var(--ink)}
 .plant-room-form>p{flex-basis:100%;margin:0;overflow-wrap:anywhere}
 .plant-room-form select:focus-visible{outline:3px solid #94b58f;outline-offset:2px}
+
+/* Allow longer German labels and action groups to fit narrow screens. */
+.settings-card h2,.creation-photo-selection p{hyphens:auto;overflow-wrap:anywhere}
+.modal form{grid-template-columns:minmax(0,1fr)}
+.creation-photo,.creation-photo-card{min-width:0}
+.creation-photo-actions,.modal-actions{flex-wrap:wrap}

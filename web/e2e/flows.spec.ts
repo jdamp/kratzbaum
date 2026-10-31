@@ -60,13 +60,31 @@ test('creates a plant, records care and a note, and keeps the form usable on a p
   await expect(fertilizerDate).toHaveValue('2024-04-01T12:00');
   await page.unroute(`**/api/plants/${plant.id}/activities`);
   let carePosts = 0;
+  let releaseResponse!: () => void, requestSaved!: () => void;
+  const responseHeld = new Promise<void>(resolve => { releaseResponse = resolve; });
+  const requestCompleted = new Promise<void>(resolve => { requestSaved = resolve; });
   await page.route(`**/api/plants/${plant.id}/activities`, async route => {
-    if (route.request().method() === 'POST') carePosts++;
-    await route.continue();
+    if (route.request().method() !== 'POST') return route.continue();
+    carePosts++;
+    const response = await route.fetch();
+    requestSaved();
+    await responseHeld;
+    await route.fulfill({ response });
   });
-  await page.getByRole('button', { name: /Düngen eintragen/ }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
-  await expect(page.getByText("Düngen").last()).toBeVisible();
-  await expect.poll(() => carePosts).toBe(1);
+  const fertilizerButton = page.getByRole('button', { name: /Düngen eintragen/ });
+  const fertilizerControl = page.locator('.quick-entry').filter({ has: page.getByLabel('Datum und Uhrzeit des Düngens') }).getByRole('button');
+  try {
+    await fertilizerButton.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+    await requestCompleted;
+    await expect.poll(() => carePosts).toBe(1);
+    await expect(fertilizerControl).toHaveText('Wird gespeichert…');
+    const wateringFilter = page.locator('.activity-filters').getByRole('button', { name: 'Gießen', exact: true });
+    await wateringFilter.click();
+    await expect(wateringFilter).toHaveAttribute('aria-pressed', 'true');
+    releaseResponse();
+    await expect(fertilizerControl).toHaveText(/Düngen eintragen/);
+    await expect(wateringFilter).toHaveAttribute('aria-pressed', 'true');
+  } finally { releaseResponse(); }
   await page.unroute(`**/api/plants/${plant.id}/activities`);
   for (const [kind, label] of [['Gießen', 'Gießen'], ['Düngen', 'Düngen'], ['Pflegenotiz', 'Pflegenotiz']] as const) {
     await page.getByRole('button', { name: kind, exact: true }).click();
@@ -102,7 +120,7 @@ test('shows reachable navigation, settings, and touch targets at phone and deskt
   const touchTargets = await nav.locator('button').evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().height));
   expect(touchTargets.every(height => height >= 44)).toBeTruthy();
   await page.getByRole('button', { name: "Einstellungen" }).click();
-  await expect(page.getByRole('heading', { name: "Sammlungseinstellungen" })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Einstellungen der Sammlung" })).toBeVisible();
   await expect(page.getByText("Freier Zugang")).toBeVisible();
   expect(await page.locator('body').evaluate(el => el.scrollWidth)).toBeLessThanOrEqual(320);
   await page.setViewportSize({ width: 1280, height: 900 });

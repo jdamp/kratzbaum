@@ -78,7 +78,7 @@ test('Rooms has its own route after Calendar and all four destinations fit phone
   await page.reload();
   await expect(page.getByLabel("Name des neuen Raums")).toBeEnabled();
   await page.getByRole('button', { name: "Einstellungen", exact: true }).click();
-  await expect(page.getByRole('heading', { name: "Sammlungseinstellungen" })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Einstellungen der Sammlung" })).toBeVisible();
   await expect(page.locator('.room-manager')).toHaveCount(0);
   await nav(page, 'Räume').click();
   await page.screenshot({ path: '/tmp/kratzbaum-rooms-phone.png', fullPage: true });

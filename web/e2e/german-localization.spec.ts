@@ -96,3 +96,29 @@ test('calendar starts on Monday and groups activity by the deployment timezone',
   await expect(page.getByText('Zeitzonenpflanze · Gießen')).toBeVisible();
   await expect(page.getByText('00:30', { exact: true })).toBeVisible();
 });
+
+test('keeps settings, navigation, and photo controls usable with wider text at 320px', async ({ page }) => {
+  await page.goto('/');
+  // Exercise the layout with wider font metrics even on hosts with narrower fallback fonts.
+  await page.addStyleTag({ content: '* { font-family: "Liberation Sans", sans-serif !important; letter-spacing: 1.5px !important; }' });
+  await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Einstellungen der Sammlung' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+
+  const navigation = page.getByRole('navigation', { name: 'Hauptnavigation' });
+  await navigation.getByRole('button', { name: 'Pflanzen', exact: true }).click();
+  await page.getByRole('button', { name: /(erste )?Pflanze hinzufügen/i }).first().click();
+  const dialog = page.getByRole('dialog');
+  await page.getByLabel('Pflanzenfoto · optional').setInputFiles({ name: 'window-plant.heic', mimeType: 'image/heic', buffer: Buffer.from('unsupported browser preview') });
+  await expect(dialog.getByText('Keine Vorschau verfügbar. Dein Foto kann trotzdem hochgeladen werden.')).toBeVisible();
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  for (const name of ['Ersetzen', 'Entfernen', 'Abbrechen', 'Pflanze hinzufügen']) {
+    const button = dialog.getByRole('button', { name, exact: true });
+    const box = await button.boundingBox();
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  }
+  await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  await navigation.getByRole('button', { name: 'Räume', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Räume', exact: true })).toBeVisible();
+});
