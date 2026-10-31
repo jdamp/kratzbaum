@@ -97,6 +97,7 @@ test('creates with a cover and one photo activity, without identification, and k
   const card = page.getByRole('button', { name: new RegExp(name) });
   await expect(card.locator('img')).toBeVisible();
   await card.click();
+  await page.getByRole('tab', { name: 'Fotos' }).click();
   await expect(page.locator('.photo-grid img')).toHaveCount(1);
   await expect(page.getByRole('button', { name: "Titelbild" })).toBeVisible();
   const detail = await (await page.request.get(`/api/plants/${plant.id}`)).json();
@@ -108,11 +109,11 @@ test('creates with a cover and one photo activity, without identification, and k
   const seedResponse = await page.request.put(`/api/plants/${plant.id}`, { data: seeded });
   expect(seedResponse.ok()).toBe(true);
   await page.reload();
-  await page.getByRole('button', { name: "Pflanze und Pflegeplan bearbeiten" }).click();
+  await page.getByRole('button', { name: "Bearbeiten", exact: true }).click();
   await expect(page.getByLabel("Gebräuchlicher Name", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Pflanzenfamilie", { exact: true })).toHaveCount(0);
   await expect(picker(page)).toHaveCount(0);
-  await page.getByLabel("Pflegenotizen").fill('Edited notes.');
+  await page.getByLabel("Pflanzennotizen").fill('Edited notes.');
   await dialog.getByRole('button', { name: "Änderungen speichern" }).click();
   await expect(dialog).toHaveCount(0);
   const edited = await (await page.request.get(`/api/plants/${plant.id}`)).json();

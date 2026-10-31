@@ -4,6 +4,7 @@ package httpapi
 // implementation details out of responses.
 func userMessage(message string) string {
 	messages := map[string]string{
+		"Invalid Wikipedia URL":   "Gib einen HTTPS-Artikellink von de.wikipedia.org oder en.wikipedia.org ohne Anmeldedaten oder Suchparameter ein.",
 		"Could not load plants":   "Pflanzen konnten nicht geladen werden.",
 		"Invalid plant ID":        "Ungültige Pflanzenkennung.",
 		"Plant not found":         "Pflanze nicht gefunden.",

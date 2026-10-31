@@ -69,7 +69,7 @@ func runMigrationUpgradeContract(t *testing.T, cfg config.Config) {
 		t.Fatal(err)
 	}
 	p, err := s.GetPlant(ctx, id)
-	if err != nil || p.RoomID != nil || p.CareStartDate != "2026-06-01" || p.CoverPhotoID != photo.ID {
+	if err != nil || p.WikipediaURL != "" || p.RoomID != nil || p.CareStartDate != "2026-06-01" || p.CoverPhotoID != photo.ID {
 		t.Fatalf("upgrade changed plant: %#v %v", p, err)
 	}
 	if activities, err := s.ListActivities(ctx, id); err != nil || len(activities) != 2 || activities[0].ID == "" || activity.ID == "" {
@@ -78,18 +78,18 @@ func runMigrationUpgradeContract(t *testing.T, cfg config.Config) {
 	if _, err := s.GetSession(ctx, session.Hash); err != nil {
 		t.Fatal(err)
 	}
-	broken := fstest.MapFS{"migrations/3_fail." + s.dialect + ".sql": &fstest.MapFile{Data: []byte("CREATE TABLE migration_probe(id TEXT); INSERT INTO nonexistent_migration_table VALUES (1);")}}
+	broken := fstest.MapFS{"migrations/900_fail." + s.dialect + ".sql": &fstest.MapFile{Data: []byte("CREATE TABLE migration_probe(id TEXT); INSERT INTO nonexistent_migration_table VALUES (1);")}}
 	if err := s.migrate(ctx, broken); err == nil {
 		t.Fatal("broken upgrade succeeded")
 	}
 	var count int
-	if err := db.QueryRow("SELECT count(*) FROM schema_migrations WHERE version=3").Scan(&count); err != nil || count != 0 {
+	if err := db.QueryRow("SELECT count(*) FROM schema_migrations WHERE version=900").Scan(&count); err != nil || count != 0 {
 		t.Fatalf("failed migration recorded: %d %v", count, err)
 	}
 	// A successful retry also proves CREATE TABLE from the failed transaction rolled back.
 	retry := fstest.MapFS{
-		"migrations/3_retry." + s.dialect + ".sql":  &fstest.MapFile{Data: []byte("CREATE TABLE migration_probe(id TEXT);")},
-		"migrations/10_after." + s.dialect + ".sql": &fstest.MapFile{Data: []byte("INSERT INTO migration_probe(id) VALUES ('ordered');")},
+		"migrations/900_retry." + s.dialect + ".sql":  &fstest.MapFile{Data: []byte("CREATE TABLE migration_probe(id TEXT);")},
+		"migrations/1000_after." + s.dialect + ".sql": &fstest.MapFile{Data: []byte("INSERT INTO migration_probe(id) VALUES ('ordered');")},
 	}
 	if err := s.migrate(ctx, retry); err != nil {
 		t.Fatal(err)

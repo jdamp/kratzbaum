@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveWikipedia, wikipediaArticleURL } from './wikipedia';
+import { normalizeWikipediaURL, resolveWikipedia, wikipediaArticleURL } from './wikipedia';
 
 const page = (title?: string, langlinks?: Array<{lang: string; title: string}>) => ({ query: { pages: [title ? { ns: 0, title, langlinks } : { ns: 0, missing: true }] } });
 function responses(...bodies: unknown[]) {
@@ -11,6 +11,12 @@ function responses(...bodies: unknown[]) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Wikipedia references', () => {
+  it('normalizes manual Wikipedia destinations and preserves article fragments', () => {
+    expect(normalizeWikipediaURL(' https://de.m.wikipedia.org:443/wiki/K%C3%B6stliches_Fensterblatt#Pflege ')).toBe('https://de.wikipedia.org/wiki/K%C3%B6stliches_Fensterblatt#Pflege');
+    expect(normalizeWikipediaURL('https://en.wikipedia.org/wiki/Fern')).toBe('https://en.wikipedia.org/wiki/Fern');
+    expect(normalizeWikipediaURL('')).toBe('');
+    for (const value of ['http://de.wikipedia.org/wiki/Fern', 'javascript:alert(1)', 'https://de.wikipedia.org.evil.test/wiki/Fern', 'https://user@de.wikipedia.org/wiki/Fern', 'https://de.wikipedia.org:444/wiki/Fern', 'https://de.wikipedia.org/wiki/', 'https://de.wikipedia.org/w/index.php', 'https://de.wikipedia.org/wiki/Fern?x=1', 'https://de.wikipedia.org/wiki/Fern?', 'https://de.wikipedia.org/wiki/%0aFern']) expect(() => normalizeWikipediaURL(value), value).toThrow();
+  });
   it('prefers a German article and follows its canonical redirect', async () => {
     const fetchMock = responses(page('Köstliches Fensterblatt'));
     await expect(resolveWikipedia('  Monstera \t deliciosa  ')).resolves.toEqual({ language: 'de', url: 'https://de.wikipedia.org/wiki/K%C3%B6stliches_Fensterblatt' });

@@ -133,6 +133,8 @@ test('new notes use current server time and retain text on failure without a dat
   await expect(page.getByLabel("Datum und Uhrzeit der Pflegenotiz")).toHaveCount(0);
   await expect(page.getByText("Geschrieben am", { exact: true })).toHaveCount(0);
   await expect(page.locator('.note-form input')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Verlauf' }).click();
+  await page.getByRole('button', { name: 'Notiz hinzufügen', exact: true }).click();
   await page.clock.setFixedTime('2000-01-02T12:00:00Z');
   const note = 'Checked the leaves today.';
   await page.getByLabel("Pflegenotiz", { exact: true }).fill(note);
@@ -149,7 +151,7 @@ test('new notes use current server time and retain text on failure without a dat
   await expect(page.getByLabel("Pflegenotiz", { exact: true })).toHaveValue(note);
   const before = Date.now();
   await page.getByRole('button', { name: "Notiz hinzufügen", exact: true }).evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
-  await expect(page.getByLabel("Pflegenotiz", { exact: true })).toHaveValue('');
+  await expect(page.getByLabel("Pflegenotiz", { exact: true })).toHaveCount(0);
   const after = Date.now();
   const detail = await (await request.get(`/api/plants/${saved.id}`)).json();
   const notes = detail.activities.filter((activity: { type: string }) => activity.type === 'note');

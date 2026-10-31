@@ -189,6 +189,7 @@ func runPlantAndCareAPI(t *testing.T, cfg config.Config) {
 	}
 	api := newAPI(store)
 	runCareRoomsAPI(t, api, store)
+	runWikipediaAPI(t, api, store)
 	payload := `{"name":"Kitchen fern","scientific_name":"Nephrolepis","care_start_date":"2026-09-01","watering_interval_days":9,"summer_fertilizing_interval_days":14,"winter_fertilizing_interval_days":40}`
 	req := httptest.NewRequest(http.MethodPost, "/api/plants", strings.NewReader(payload))
 	res := httptest.NewRecorder()

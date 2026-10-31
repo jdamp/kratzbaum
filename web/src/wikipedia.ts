@@ -1,6 +1,21 @@
 export type WikipediaLanguage = 'de' | 'en';
 export type WikipediaReference = { language: WikipediaLanguage; url: string };
 
+export const wikipediaURLHelp = 'Gib einen HTTPS-Artikellink von de.wikipedia.org oder en.wikipedia.org ohne Anmeldedaten oder Suchparameter ein.';
+
+// Match server validation without depending on article availability.
+export function normalizeWikipediaURL(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (!/^https:\/\//i.test(trimmed)) throw new Error(wikipediaURLHelp);
+  const url = new URL(trimmed);
+  const host = url.hostname.toLowerCase().replace(/^(de|en)\.m\.wikipedia\.org$/, '$1.wikipedia.org');
+  const title = decodeURIComponent(url.pathname.slice('/wiki/'.length));
+  if (url.protocol !== 'https:' || !['de.wikipedia.org', 'en.wikipedia.org'].includes(host) || url.username || url.password || url.port || trimmed.split('#')[0].includes('?') || !url.pathname.startsWith('/wiki/') || !title.trim() || /[\x00\r\n\t]/.test(decodeURIComponent(url.pathname + url.hash))) throw new Error(wikipediaURLHelp);
+  url.hostname = host;
+  return url.href;
+}
+
 type Page = { title?: string; ns?: number; missing?: boolean; invalid?: boolean; langlinks?: Array<{ lang: string; title?: string }> };
 type Entity = { claims?: { P225?: Array<{ mainsnak?: { datavalue?: { value?: string } } }> }; sitelinks?: Record<string, { title?: string }> };
 

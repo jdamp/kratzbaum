@@ -30,7 +30,7 @@ Users with collection access SHALL be able to create, list, rename, and delete s
 - **THEN** the confirmation is exactly Raum „Wohnzimmer“ gespeichert.
 
 ### Requirement: Optional plant room assignment
-Each plant SHALL belong to at most one room and SHALL support an unassigned state. The add/edit plant form SHALL offer an optional room selector. Plant detail SHALL also provide a visible labelled room selector with all available rooms and Unassigned, and an explicit save action without requiring the full plant editor. Users SHALL be able to assign, move, or unassign an existing plant without resetting care anchors or creating activities. A room assignment referencing a nonexistent room SHALL be rejected. Existing plants SHALL remain unassigned after upgrade until a room is selected. Saving a room assignment SHALL preserve all other plant details, care settings, photographs, and activity history. Confirmed assignment changes SHALL update plant detail and affected Plants and Today room filters. Saving SHALL prevent duplicate submission; a failed save SHALL preserve the selected room for explicit retry while confirmed assignment remains unchanged. Changes SHALL be disabled offline or when room information is unavailable.
+Each plant SHALL belong to at most one room and SHALL support an unassigned state. The add/edit plant form SHALL offer an optional room selector. Plant detail SHALL display its saved room or unassigned state in the identity header, and Bearbeiten SHALL open the editor containing a labelled selector with all available rooms and Unassigned. Room changes SHALL be committed through the editor's explicit Änderungen speichern action rather than an always-visible standalone room-assignment form. Users SHALL be able to assign, move, or unassign an existing plant without resetting care anchors or creating activities. A room assignment referencing a nonexistent room SHALL be rejected. Existing plants SHALL remain unassigned after upgrade until a room is selected. A room-only edit SHALL preserve all unrelated plant details, the Wikipedia override, care settings, photographs, and activity history, including unrelated changes confirmed before its submission. Confirmed assignment changes SHALL update plant detail and affected Plants and Today room filters. Saving SHALL prevent duplicate submission; a failed save SHALL preserve the selected room for explicit retry while confirmed assignment remains unchanged. Room changes SHALL be disabled offline or when room information is unavailable; unavailable room information SHALL NOT prevent unrelated plant edits or silently clear an assignment.
 
 #### Scenario: Create without a room
 - **WHEN** a user saves a plant without choosing a room
@@ -45,20 +45,28 @@ Each plant SHALL belong to at most one room and SHALL support an unassigned stat
 - **THEN** the save is rejected with a useful error and the plant form remains recoverable
 
 #### Scenario: Assign an existing unassigned plant from detail
-- **WHEN** a user opens an existing unassigned plant, selects Wohnzimmer beside its room information, and saves
+- **WHEN** a user opens Bearbeiten from an existing unassigned plant, selects Wohnzimmer, and saves
 - **THEN** the confirmed room is Wohnzimmer and the plant appears in that room in Plants and Today without creating care activities
 
 #### Scenario: Move or unassign from detail
-- **WHEN** a user selects another room or Unassigned on plant detail and saves
-- **THEN** the plant moves to the confirmed selection while its other details, care settings, photographs, and history are preserved
+- **WHEN** a user selects another room or Unassigned in Bearbeiten and saves
+- **THEN** the plant moves to the confirmed selection while unrelated details, its Wikipedia override, care settings, photographs, and history are preserved
 
 #### Scenario: Assignment failure and retry
 - **WHEN** saving a selected room fails
-- **THEN** the confirmed room remains unchanged, the selection remains available for explicit retry, and an accessible error is shown
+- **THEN** the confirmed room remains unchanged, the editor retains the selection for explicit retry, and an accessible error is shown
 
 #### Scenario: Assignment unavailable offline
 - **WHEN** a plant is viewed offline or room information is unavailable
-- **THEN** the confirmed room is readable and room assignment changes are disabled
+- **THEN** its confirmed room remains readable and assignment changes are disabled
+
+#### Scenario: Cancel a room edit
+- **WHEN** a user changes the room in Bearbeiten and cancels
+- **THEN** the saved assignment and collection filters remain unchanged
+
+#### Scenario: Preserve a newer unrelated change
+- **WHEN** the user changes only the room while another client has confirmed changes to unrelated plant fields before submission
+- **THEN** saving the room preserves those newer unrelated values
 
 ### Requirement: Room-scoped collection and care views
 Plants and Today SHALL offer All rooms, each existing room, and Unassigned filters. The selected room SHALL be retained when navigating between Plants and Today during the session. On Today, it SHALL filter due, upcoming, not-started, and collection-preview items and their displayed counts consistently. Care SHALL be recorded through individual plant/activity actions. Filters SHALL NOT hide available actions because of an unrelated plant-name search. Room controls SHALL support keyboard operation and fit a 320 CSS-pixel viewport with touch targets of at least 44 CSS pixels.

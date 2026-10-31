@@ -1,0 +1,1 @@
+ALTER TABLE plants ADD COLUMN wikipedia_url TEXT NOT NULL DEFAULT '';

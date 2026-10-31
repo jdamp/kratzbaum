@@ -1,0 +1,166 @@
+.has-plant .topbar { max-width: 1440px; }
+.plant-detail,.plant-edit-dialog,.care-entry-dialog { font-family: Inter,Arial,sans-serif; }
+.plant-detail { min-width: 0; padding-bottom: 24px; }
+.detail-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 14px; }
+.plant-identity { position: relative; display: grid; grid-template-columns: minmax(180px,28%) minmax(0,1fr); min-height: 236px; border-radius: 24px; background: var(--paper); overflow: hidden; }
+.identity-photo { position: relative; display: grid; place-items: center; min-width: 0; background: var(--pale); }
+.cover-badge { position: absolute; left: 18px; bottom: 18px; background: var(--paper); color: var(--ink); padding: 7px 14px; border-radius: 18px; font-size: 11px; font-weight: 650; }
+.identity-photo img { display: block; width: 100%; height: 236px; object-fit: cover; }
+.identity-fallback { display: grid; place-items: center; color: #759173; height: 100%; min-height: 112px; }
+.identity-copy { min-width: 0; padding: 28px 28px 24px; }
+.identity-copy h1 { font-size: 38px; padding-right: 150px; overflow-wrap: anywhere; }
+.identity-copy .eyebrow { margin: 0 0 12px; }
+.identity-species { color: var(--green); font-size: 16px; overflow-wrap: anywhere; margin-top: 10px; }
+.identity-species .species-reference { text-decoration: none; }
+.identity-species .species-reference:hover { text-decoration: underline; }
+.identity-room { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); margin: 8px 0 0; overflow-wrap: anywhere; }
+.identity-room svg { flex: none; }
+.identity-family { font-size: 13px; color: var(--muted); margin: 18px 0 0; }
+.identity-edit { position: absolute; right: 24px; top: 24px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--pale); color: var(--green); }
+.plant-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--line); padding: 20px 0 16px; margin-bottom: 26px; }
+.plant-tabs button { flex: 1 1 0; max-width: 194px; border: 0; border-radius: 12px; min-height: 46px; padding: 12px 8px; background: transparent; color: var(--muted); font-size: 14px; }
+.plant-tabs button[aria-selected=true] { background: var(--pale); color: var(--green); font-weight: 700; }
+.plant-detail [role=tabpanel][hidden] { display: none; }
+.detail-section-title { font-size: 22px; margin: 0 0 18px; }
+.detail-overview-grid { display: grid; grid-template-columns: minmax(0,1.65fr) minmax(0,1fr); gap: 24px; }
+.detail-card { min-width: 0; background: var(--paper); border-radius: 20px; padding: 24px; }
+.detail-card h2 { font-size: 19px; margin: 0; }
+.card-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -8px 0 14px; }
+.card-heading h2 { min-width: 0; }
+.card-heading .text-button { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.plant-detail .text-button { min-height: 44px; }
+.care-status-list { padding: 0 24px; }
+.detail-care-row { display: grid; grid-template-columns: 44px minmax(0,1fr); column-gap: 16px; padding: 24px 0; align-items: start; }
+.detail-care-row + .detail-care-row { border-top: 1px solid var(--line); }
+.detail-care-row .activity-dot { width: 44px; height: 44px; }
+.detail-care-copy h3 { font-size: 18px; margin: 0 0 6px; }
+.detail-care-copy p { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0 0 10px; overflow-wrap: anywhere; }
+.care-state { display: inline-block; font-size: 12px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
+.care-state.overdue,.care-state.due,.care-state.upcoming { border-radius: 16px; padding: 5px 12px; background: var(--pale); color: var(--green); }
+.care-state.overdue { background: #fbeee7; color: #92523c; }
+.care-state.due { background: #f6f0dd; color: #8b641d; }
+.care-record { grid-column: 2; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px; min-height: 44px; padding: 12px 16px; font-weight: 650; font-size: 14px; margin-top: 14px; justify-self: start; }
+.care-record.watering { background: #35677d; color: white; }
+.care-record.fertilizing { background: #f6f0dd; color: #8b641d; }
+.care-record svg { flex: none; }
+.care-plan dl { margin: 12px 0 0; }
+.care-plan dl>div { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; align-items: center; padding: 16px 0; font-size: 14px; }
+.care-plan dl>div+div { border-top: 1px solid var(--line); }
+.care-plan dt { color: var(--muted); }
+.care-plan dd { font-weight: 650; text-align: right; margin: 0; overflow-wrap: anywhere; }
+.recent-row { display: flex; gap: 16px; padding: 14px 0; align-items: start; }
+.recent-row+.recent-row { border-top: 1px solid var(--line); }
+.recent-row>div { min-width: 0; }
+.recent-row b { font-size: 14px; }
+.recent-row p { font-size: 14px; line-height: 1.5; margin: 6px 0; overflow-wrap: anywhere; }
+.recent-row small { display: block; color: var(--muted); font-size: 12px; line-height: 1.6; margin-top: 5px; }
+.plant-notes { background: var(--pale); }
+.plant-notes h2 { display: flex; align-items: center; gap: 10px; }
+.plant-notes p { white-space: pre-wrap; font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; }
+.plant-notes .text-button { display: inline-flex; align-items: center; gap: 8px; background: var(--paper); padding: 10px 14px; border-radius: 12px; }
+.detail-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 22px; }
+.detail-section-heading h2 { margin: 0; font-size: 22px; }
+.detail-section-heading .secondary { display: inline-flex; justify-content: center; align-items: center; gap: 8px; color: var(--green); background: var(--pale); }
+.plant-detail .activity-filters { flex-wrap: wrap; overflow: visible; gap: 6px; margin-bottom: 18px; }
+.plant-detail .activity-filters button { min-height: 44px; font-size: 13px; padding: 9px 14px; }
+.plant-detail .timeline-item { padding: 20px; border: 0; border-radius: 18px; min-width: 0; }
+.plant-detail .timeline-item>div { min-width: 0; overflow-wrap: anywhere; }
+.plant-detail .timeline-item .text-button { min-height: 44px; }
+.plant-detail .delete-button,.plant-edit-dialog .icon-button { min-height: 44px; min-width: 44px; }
+.new-note { margin-bottom: 20px; }
+.new-note .section-title { margin-top: 0; }
+.save-notice { background: var(--pale); color: var(--green); padding: 14px 18px; border-radius: 14px; font-size: 14px; }
+.plant-detail .gallery { margin-top: 0; }
+.plant-detail .gallery>.section-title { margin-top: 0; font-size: 22px; flex-wrap: wrap; }
+.plant-detail .gallery .photo-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.plant-detail .photo-card { border: 0; border-radius: 20px; background: var(--paper); }
+.plant-detail .photo-card.is-cover { grid-column: 1 / -1; }
+.plant-detail .photo-card>img,.plant-detail .photo-card>[role=img] { height: 230px; }
+.plant-detail .photo-actions { padding: 10px 16px; }
+.editor-card,.creation-fields { display: grid; gap: 18px; min-width: 0; }
+.editor-card { padding: 24px; background: var(--paper); border-radius: 20px; }
+.editor-card h3 { font-size: 19px; margin: 0 0 4px; }
+.plant-edit-dialog { background: var(--bg,#f6f5ef); width: min(760px,100%); padding: 28px; }
+.plant-edit-dialog .plant-fields { gap: 20px; }
+.plant-edit-dialog input,.plant-edit-dialog select,.plant-edit-dialog textarea { min-height: 48px; padding: 12px; width: 100%; font-weight: 400; }
+.pause-field { display: flex; gap: 8px; align-items: center; min-height: 44px; font-weight: 450; }
+.modal label.pause-field { display: flex; }
+.seasonal-field { display: grid; gap: 8px; min-width: 0; }
+.modal .pause-field input { min-height: 20px; width: 20px; height: 20px; flex: none; }
+.plant-edit-dialog .modal-actions { position: sticky; bottom: -28px; background: #f6f5ef; padding: 18px 0 12px; margin: 0; }
+.wikipedia-field { display: grid; gap: 8px; min-width: 0; }
+.wikipedia-field .muted { margin: 0; font-size: 12px; }
+.wikipedia-field input { font-size: 13px; }
+.wikipedia-actions { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.wikipedia-actions .text-button { display: inline-flex; align-items: center; text-decoration: none; }
+.field-error { font-size: 13px; color: #92523c; margin: 0; line-height: 1.5; }
+.care-entry-dialog form .muted { margin: 0; }
+.care-entry-dialog textarea { resize: vertical; min-height: 100px; }
+.care-entry-dialog .primary { background: #35677d; }
+@media(min-width:850px) {
+  .has-plant .content { max-width: 1440px; padding-left: 260px; }
+  .has-plant .bottom-nav { left: max(calc((100vw - 1440px)/2 + 24px),24px); }
+  .has-plant .bottom-nav button { width: 200px; }
+}
+@media(min-width:1180px) {
+  .detail-care-row { grid-template-columns: 44px minmax(0,1fr) auto; }
+  .detail-care-row.watering .care-record { grid-column: 2; }
+  .detail-care-row.fertilizing .care-record { grid-column: 3; grid-row: 1; align-self: center; }
+  .detail-recent { grid-column: 1; }
+  .plant-notes { grid-column: 2; }
+}
+@media(min-width:1360px) {
+  .detail-care-row.watering { position: relative; }
+  .detail-care-row.watering .detail-care-copy>p { padding-right: 145px; }
+  .detail-care-row.watering .care-state { position: absolute; right: 0; top: 24px; max-width: 175px; }
+}
+@media(max-width:1179px) {
+  .detail-overview-grid { grid-template-columns: minmax(0,1fr); gap: 20px; }
+  .identity-copy h1 { padding-right: 0; font-size: 30px; }
+  .identity-edit { position: static; justify-self: start; margin: 0 24px 24px; grid-column: 2; }
+  .identity-photo { grid-row: 1 / 3; }
+  .identity-photo img { min-height: 100%; max-height: none; }
+  .detail-recent { order: 4; }
+}
+@media(max-width:560px) {
+  .has-plant .content { margin-top: 8px; }
+  .detail-back { margin-bottom: 14px; }
+  .plant-identity { grid-template-columns: 92px minmax(0,1fr); column-gap: 16px; min-height: 0; background: transparent; border-radius: 0; }
+  .identity-photo { grid-row: 1 / 3; border-radius: 16px; overflow: hidden; height: 112px; align-self: start; }
+  .identity-photo img { min-height: 112px; height: 112px; }
+  .identity-copy { padding: 0; }
+  .identity-copy .eyebrow,.identity-family { display: none; }
+  .cover-badge { display: none; }
+  .identity-copy h1 { font-size: 27px; line-height: 1.12; }
+  .identity-species { font-size: 13px; margin-top: 4px; }
+  .identity-species .species-reference { min-height: 44px; padding: 8px 0; }
+  .identity-room { margin: 3px 0 0; font-size: 12px; }
+  .identity-edit { margin: 10px 0 0; background: var(--paper); padding: 10px 14px; }
+  .plant-tabs { padding: 20px 0 0; margin: 0 0 28px; border: 0; }
+  .detail-section-title { font-size: 22px; }
+  .detail-card { padding: 20px 16px; }
+  .care-status-list { padding: 0 16px; }
+  .detail-care-row { column-gap: 12px; padding: 20px 0; }
+  .care-record { grid-column: 1 / -1; width: 100%; margin-top: 16px; }
+  .detail-care-copy h3 { font-size: 17px; }
+  .detail-care-copy p { font-size: 12px; }
+  .card-heading { gap: 6px; }
+  .card-heading h2 { font-size: 18px; }
+  .card-heading .text-button { font-size: 12px; }
+  .care-plan dl>div { font-size: 13px; }
+  .detail-section-heading { flex-wrap: wrap; }
+  .detail-section-heading .secondary { font-size: 13px; padding: 10px 12px; }
+  .plant-detail .timeline-item { padding: 16px 12px; gap: 9px; flex-wrap: wrap; }
+  .plant-detail .timeline-item>div { flex-basis: 60%; }
+  .plant-detail .timeline-item>.text-button { margin-left: 47px; }
+  .plant-detail .gallery .photo-grid { grid-template-columns: minmax(0,1fr); }
+  .plant-detail .gallery>.section-title label { font-size: 13px; }
+  .plant-edit-dialog { position: fixed; inset: 0; max-height: none; height: 100dvh; width: 100%; border-radius: 0; padding: 24px 16px; }
+  .plant-edit-dialog .modal-heading h2 { font-size: 27px; }
+  .plant-edit-dialog .editor-card { padding: 22px 16px; }
+  .plant-edit-dialog .modal-actions { bottom: -24px; gap: 10px; padding-bottom: max(16px,env(safe-area-inset-bottom)); }
+  .plant-edit-dialog .modal-actions button { flex: 1 1 110px; font-size: 13px; padding: 12px; }
+  .care-entry-dialog { position: fixed; bottom: 0; max-height: 92dvh; width: 100%; border-radius: 24px 24px 0 0; padding: 24px 20px max(24px,env(safe-area-inset-bottom)); }
+  .care-entry-dialog .modal-actions { flex-wrap: wrap; }
+  .care-entry-dialog .modal-actions button { flex: 1 1 100px; }
+}

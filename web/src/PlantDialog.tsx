@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, send, uploadPhoto } from './api';
+import { ApiError, get, send, uploadPhoto } from './api';
 import type { Plant, PlantInput, Room } from './api';
+import { WikipediaField } from './WikipediaField';
+import { normalizeWikipediaURL } from './wikipedia';
 import { RoomManager } from './Rooms';
 import type { RoomChange } from './Rooms';
 import { Identification, photoTypes } from './Identification';
@@ -37,12 +39,17 @@ function PhotoPicker({ file, disabled, onChange }: { file: File | null; disabled
   </div>;
 }
 
-export function PlantDialog({ editing, available, offline, rooms, roomsUnavailable, onRoomsChanged, onClose, onSaved }: { editing: Plant | null; available: boolean; offline: boolean; rooms: Room[]; roomsUnavailable: boolean; onRoomsChanged: (change: RoomChange) => void; onClose: () => void; onSaved: () => void }) {
+export function PlantDialog({ editing, available, offline, rooms, roomsUnavailable, onRoomsChanged, onClose, onSaved, focusGroup = 'details', onSaveStart, disabled = false, returnFocus }: { editing: Plant | null; available: boolean; offline: boolean; rooms: Room[]; roomsUnavailable: boolean; onRoomsChanged: (change: RoomChange) => void; onClose: () => void; onSaved: (saved?: Plant) => void; focusGroup?: 'details' | 'care' | 'notes'; onSaveStart?: () => void; disabled?: boolean; returnFocus?: HTMLElement | null }) {
   const [managingRooms, setManagingRooms] = useState(false);
   const wasManaging = useRef(false);
   const [roomID, setRoomID] = useState(editing?.room_id ?? '');
-  useEffect(() => { if (!roomsUnavailable && roomID && !rooms.some(room => room.id === roomID)) setRoomID(''); }, [rooms, roomsUnavailable, roomID]);
+
   const [scientificName, setScientificName] = useState(editing?.scientific_name ?? '');
+  const [wikipediaChange, setWikipediaChange] = useState<string | undefined>(undefined);
+  const active = useRef(true);
+  const canWrite = useRef(false);
+  canWrite.current = !offline && !disabled;
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const [commonName, setCommonName] = useState('');
   const [identifying, setIdentifying] = useState(false);
   const identificationPending = useRef(false);
@@ -68,24 +75,40 @@ export function PlantDialog({ editing, available, offline, rooms, roomsUnavailab
   const saving = phase === 'saving' || phase === 'uploading';
   const busy = saving || identifying;
   useEffect(() => {
-    const launcher = document.activeElement as HTMLElement | null;
-    if (!dialog.current?.contains(document.activeElement)) dialog.current?.focus();
-    return () => { if (launcher?.isConnected) launcher.focus(); };
+    const launcher = returnFocus ?? document.activeElement as HTMLElement | null;
+    if (editing && focusGroup !== 'details') dialog.current?.querySelector<HTMLElement>(focusGroup === 'care' ? '#care-fields input' : '[name=notes]')?.focus();
+    else if (!dialog.current?.contains(document.activeElement)) dialog.current?.focus();
+    return () => { requestAnimationFrame(() => { if (!dialog.current?.isConnected && launcher?.isConnected) launcher.focus(); }); };
   }, []);
-  const finish = () => { onClose(); onSaved(); };
+  const finish = (saved?: Plant) => { onClose(); onSaved(saved); };
   const close = () => { if (inFlight.current) return; if (managingRooms) { setManagingRooms(false); return; } if (confirmedPlant.current) finish(); else onClose(); };
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (inFlight.current || identificationPending.current || offline) return;
+    if (inFlight.current || identificationPending.current || !canWrite.current) return;
     const fd = new FormData(event.currentTarget), v = (key: string) => String(fd.get(key) || ''), n = (key: string) => v(key) ? Number(v(key)) : null;
-    const input: PlantInput = { name: v('name').trim(), scientific_name: v('scientific_name'), common_name: editing?.common_name ?? commonName, family: editing?.family ?? '', notes: v('notes'), care_start_date: v('care_start_date'), ...(roomsUnavailable ? {} : { room_id: roomID || null }), watering_interval_days: Number(v('watering_interval_days')), summer_fertilizing_interval_days: n('summer'), winter_fertilizing_interval_days: n('winter'), summer_fertilizing_paused: fd.has('summer_paused'), winter_fertilizing_paused: fd.has('winter_paused') };
+    let input: PlantInput = { name: v('name').trim(), scientific_name: v('scientific_name'), common_name: editing?.common_name ?? commonName, family: editing?.family ?? '', notes: v('notes'), care_start_date: v('care_start_date'), ...(roomsUnavailable ? {} : { room_id: roomID || null }), watering_interval_days: Number(v('watering_interval_days')), summer_fertilizing_interval_days: n('summer'), winter_fertilizing_interval_days: n('winter'), summer_fertilizing_paused: fd.has('summer_paused'), winter_fertilizing_paused: fd.has('winter_paused') };
+    if (editing && wikipediaChange !== undefined) {
+      try { input.wikipedia_url = normalizeWikipediaURL(wikipediaChange); } catch { setError('Prüfe den Wikipedia-Link. Er muss auf einen deutschen oder englischen Wikipedia-Artikel verweisen.'); return; }
+    }
     inFlight.current = true;
+    onSaveStart?.();
     setError('');
     if (!confirmedPlant.current) {
       setPhase('saving');
       try {
+        if (editing) {
+          const changed: Partial<PlantInput> = {};
+          const baseline = { ...editing, room_id: editing.room_id ?? null, summer_fertilizing_paused: !!editing.summer_fertilizing_paused, winter_fertilizing_paused: !!editing.winter_fertilizing_paused };
+          for (const key of Object.keys(input) as (keyof PlantInput)[]) {
+            if (key === 'wikipedia_url' || JSON.stringify(input[key]) !== JSON.stringify(baseline[key])) Object.assign(changed, { [key]: input[key] });
+          }
+          const { plant: latest } = await get<{ plant: Plant }>('/api/plants/' + editing.id);
+          if (!active.current || !canWrite.current) { inFlight.current = false; setPhase('draft'); return; }
+          const { wikipedia_url: _override, ...current } = latest;
+          input = { ...current, ...changed };
+        }
         const saved = await send<Plant>(editing ? '/api/plants/' + editing.id : '/api/plants', input, editing ? 'PUT' : 'POST');
-        if (editing) { finish(); return; }
+        if (editing) { if (active.current) finish(saved); return; }
         confirmedPlant.current = saved;
         setSavedPlant(saved);
       } catch (e) {
@@ -109,10 +132,10 @@ export function PlantDialog({ editing, available, offline, rooms, roomsUnavailab
     finish();
   };
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) close(); }}>
-    <section ref={dialog} tabIndex={-1} className="modal" role="dialog" aria-modal="true" aria-labelledby="form-title" aria-busy={busy} onKeyDown={e => {
+    <section ref={dialog} tabIndex={-1} className={'modal' + (editing ? ' plant-edit-dialog' : '')} role="dialog" aria-modal="true" aria-labelledby="form-title" aria-busy={busy} onKeyDown={e => {
       if (e.key === 'Escape') { e.preventDefault(); close(); }
       if (e.key === 'Tab') {
-        const controls = Array.from(dialog.current!.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled):not([hidden]), textarea:not(:disabled), select:not(:disabled)')).filter(el => el.getClientRects().length);
+        const controls = Array.from(dialog.current!.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled):not([hidden]), textarea:not(:disabled), select:not(:disabled), a[href]')).filter(el => el.getClientRects().length);
         const first = controls[0], last = controls[controls.length - 1];
         if (!first) { e.preventDefault(); return; }
         if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last.focus(); }
@@ -127,11 +150,30 @@ export function PlantDialog({ editing, available, offline, rooms, roomsUnavailab
         {savedPlant && <div className="saved-plant-summary"><h3>{savedPlant.name}</h3><p className="muted">{[savedPlant.scientific_name, savedPlant.common_name].filter(Boolean).join(' · ')}</p><p className="muted">{savedPlant.care_start_date ? `Pflegebeginn: ${dateOnly(savedPlant.care_start_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}` : 'Die Pflege beginnt mit dem ersten Eintrag'} · Gießen: {everyDays(savedPlant.watering_interval_days)}</p></div>}
         {!editing && <PhotoPicker file={file} disabled={busy} onChange={setFile}/>}
         {!editing && !savedPlant && <Identification source={file} available={available} offline={offline} disabled={saving} onBusyChange={identificationBusy} onConfirm={candidate => { setScientificName(candidate.scientific_name); setCommonName(candidate.common_names?.[0] ?? ''); }}/>}
-        <fieldset className="plant-fields" disabled={busy || !!savedPlant || offline} hidden={!!savedPlant}>
-          <label>Pflanzenname<input name="name" required maxLength={120} autoFocus defaultValue={editing?.name??''} placeholder="Monstera am Fenster"/></label><label>Wissenschaftlicher Name<input name="scientific_name" value={scientificName} onChange={e => { setScientificName(e.target.value); setCommonName(''); }} placeholder="Monstera deliciosa"/></label><label>Raum · optional<select name="room_id" value={roomID} onChange={e => setRoomID(e.target.value)} disabled={roomsUnavailable || offline}><option value="">Nicht zugeordnet</option>{rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}{roomID && !rooms.some(room => room.id === roomID) && <option value={roomID}>Rauminformationen nicht verfügbar</option>}</select></label>{roomsUnavailable && <p className="muted">Rauminformationen sind nicht verfügbar. Die bestehende Zuordnung bleibt erhalten.</p>}<button type="button" className="text-button manage-rooms-button" onClick={() => setManagingRooms(true)}>Räume verwalten</button><label>Pflegebeginn<input name="care_start_date" type="date" defaultValue={editing?.care_start_date??''} aria-describedby="care-start-help"/></label><p id="care-start-help" className="muted">Optional. Ohne Datum beginnen Gieß- und Düngeplan jeweils mit dem ersten Pflegeeintrag. Ein angegebenes Datum gilt bis zum ersten Eintrag der jeweiligen Art.</p><label>Gießabstand (Tage) <span className="inline-input"><input name="watering_interval_days" type="number" min="1" max="365" defaultValue={editing?.watering_interval_days??7} required/></span></label><div className="two-fields"><label>Düngeabstand im Sommer (Tage)<input name="summer" type="number" min="1" max="365" defaultValue={editing?.summer_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="summer_paused" defaultChecked={editing?.summer_fertilizing_paused??false}/> Im Sommer pausieren</span></label><label>Düngeabstand im Winter (Tage)<input name="winter" type="number" min="1" max="365" defaultValue={editing?.winter_fertilizing_interval_days??''} placeholder="Optional"/><span><input type="checkbox" name="winter_paused" defaultChecked={editing?.winter_fertilizing_paused??false}/> Im Winter pausieren</span></label></div><label>Pflegenotizen<textarea name="notes" rows={3} defaultValue={editing?.notes??''} placeholder="Licht, Luftfeuchtigkeit, wichtige Hinweise…"/></label>
+        <fieldset className="plant-fields" disabled={busy || !!savedPlant || offline || disabled} hidden={!!savedPlant}>
+          <div className={editing ? 'editor-card' : 'creation-fields'}>
+            {editing && <h3>Pflanzendetails</h3>}
+            <label>Pflanzenname<input name="name" required maxLength={120} autoFocus={focusGroup === 'details'} defaultValue={editing?.name ?? ''} placeholder="Monstera am Fenster"/></label>
+            <label>Wissenschaftlicher Name<input name="scientific_name" value={scientificName} onChange={e => { setScientificName(e.target.value); setCommonName(''); }} placeholder="Monstera deliciosa"/></label>
+            {editing && <WikipediaField key={editing.id} name={scientificName} savedURL={editing.wikipedia_url || ''} online={!offline} disabled={busy || disabled} onChange={setWikipediaChange}/>}
+            <label>Raum · optional<select name="room_id" value={roomID} onChange={e => setRoomID(e.target.value)} disabled={roomsUnavailable || offline}><option value="">Nicht zugeordnet</option>{rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}{roomID && !rooms.some(room => room.id === roomID) && <option value={roomID}>Rauminformationen nicht verfügbar</option>}</select></label>
+            {roomsUnavailable && <p className="muted">Rauminformationen sind nicht verfügbar. Die bestehende Zuordnung bleibt erhalten.</p>}
+            <button type="button" className="text-button manage-rooms-button" onClick={() => setManagingRooms(true)}>Räume verwalten</button>
+            <label>{editing ? 'Pflanzennotizen' : 'Pflegenotizen'}<textarea name="notes" rows={3} defaultValue={editing?.notes ?? ''} placeholder="Licht, Luftfeuchtigkeit, wichtige Hinweise…"/></label>
+          </div>
+          <div id="care-fields" className={editing ? 'editor-card' : 'creation-fields'}>
+            {editing && <h3>Pflegeplan</h3>}
+            <label>Gießabstand (Tage)<input name="watering_interval_days" type="number" min="1" max="365" defaultValue={editing?.watering_interval_days ?? 7} required/></label>
+            <div className="two-fields">
+              <div className="seasonal-field"><label>Düngeabstand im Sommer (Tage)<input name="summer" type="number" min="1" max="365" defaultValue={editing?.summer_fertilizing_interval_days ?? ''} placeholder="Optional"/></label><label className="pause-field"><input type="checkbox" name="summer_paused" defaultChecked={editing?.summer_fertilizing_paused ?? false}/> Im Sommer pausieren</label></div>
+              <div className="seasonal-field"><label>Düngeabstand im Winter (Tage)<input name="winter" type="number" min="1" max="365" defaultValue={editing?.winter_fertilizing_interval_days ?? ''} placeholder="Optional"/></label><label className="pause-field"><input type="checkbox" name="winter_paused" defaultChecked={editing?.winter_fertilizing_paused ?? false}/> Im Winter pausieren</label></div>
+            </div>
+            <label>Pflegebeginn<input name="care_start_date" type="date" defaultValue={editing?.care_start_date ?? ''} aria-describedby="care-start-help"/></label>
+            <p id="care-start-help" className="muted">Optional. Ohne Datum beginnen Gieß- und Düngeplan jeweils mit dem ersten Pflegeeintrag. Ein angegebenes Datum gilt bis zum ersten Eintrag der jeweiligen Art.</p>
+          </div>
         </fieldset>
         <div className={'modal-actions' + (savedPlant ? ' creation-recovery-actions' : '')}>
-          {savedPlant ? <><button className="primary" disabled={busy || !file}>{busy ? 'Foto wird hochgeladen…' : 'Foto erneut hochladen'}</button><button type="button" className="secondary" disabled={busy} onClick={close}>Ohne Foto fortfahren</button></> : <><button type="button" className="secondary" disabled={saving} onClick={close}>Abbrechen</button><button className="primary" disabled={busy || offline}>{saving ? 'Pflanze wird gespeichert…' : editing ? 'Änderungen speichern' : 'Pflanze hinzufügen'}</button></>}
+          {savedPlant ? <><button className="primary" disabled={busy || !file}>{busy ? 'Foto wird hochgeladen…' : 'Foto erneut hochladen'}</button><button type="button" className="secondary" disabled={busy} onClick={close}>Ohne Foto fortfahren</button></> : <><button type="button" className="secondary" disabled={saving} onClick={close}>Abbrechen</button><button className="primary" aria-busy={saving} disabled={busy || offline || disabled}>{saving ? 'Pflanze wird gespeichert…' : editing ? 'Änderungen speichern' : 'Pflanze hinzufügen'}</button></>}
         </div>
         {savedPlant && !busy && <p className="muted">Beim erneuten Versuch wird diese gespeicherte Pflanze verwendet.</p>}
       </form>

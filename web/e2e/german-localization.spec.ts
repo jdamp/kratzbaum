@@ -70,7 +70,7 @@ test('retries a failed lookup and never applies a stale result to another plant'
     });
     await page.goto(`/plants/${first.id}`);
     await firstLookup;
-    await page.getByRole('button', { name: '← Alle Pflanzen' }).click();
+    await page.getByRole('button', { name: 'Alle Pflanzen' }).click();
     await page.getByRole('button', { name: new RegExp(second.name) }).click();
     await expect(page.getByText(/Wikipedia konnte nicht geprüft werden/)).toBeVisible();
     failSecond = false;

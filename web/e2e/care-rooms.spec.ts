@@ -95,12 +95,12 @@ test('starts individual care, previews photos, and manages rooms without losing 
   await nav(page, 'Pflanzen').click();
   await page.getByLabel("Pflanzen suchen").fill('');
   await page.getByRole('button', { name: new RegExp(name) }).click();
-  await page.getByRole('button', { name: "Pflanze und Pflegeplan bearbeiten" }).click();
+  await page.getByRole('button', { name: "Bearbeiten", exact: true }).click();
   await page.getByLabel("Raum · optional").selectOption(living.id);
   await page.getByLabel("Pflegebeginn", { exact: true }).fill('2026-01-01');
   await dialog.getByRole('button', { name: "Änderungen speichern" }).click();
   await expect(dialog).toHaveCount(0);
-  await page.getByRole('button', { name: "Pflanze und Pflegeplan bearbeiten" }).click();
+  await page.getByRole('button', { name: "Bearbeiten", exact: true }).click();
   await expect(page.getByLabel("Pflegebeginn", { exact: true })).toHaveValue('2026-01-01');
   await page.getByLabel("Pflegebeginn", { exact: true }).fill('');
   await dialog.getByRole('button', { name: "Änderungen speichern" }).click();

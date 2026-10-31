@@ -26,6 +26,7 @@ export function PlantPhotos({ plant, available, offline, disabled = false, onCha
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const pending = useRef(false);
   const review = useRef<HTMLElement>(null);
   const lastTrigger = useRef<HTMLButtonElement>(null);
@@ -36,16 +37,18 @@ export function PlantPhotos({ plant, available, offline, disabled = false, onCha
   };
   useEffect(() => {
     let active = true;
-    get<{ photos: Photo[] }>(`/api/plants/${plant.id}/photos`).then(result => { if (active) setPhotos(result.photos); }).catch(e => { if (active) setError(e instanceof ApiError ? e.message : 'Fotos konnten nicht geladen werden.'); });
+    get<{ photos: Photo[] }>(`/api/plants/${plant.id}/photos`).then(result => { if (active) setPhotos(result.photos); }).catch(e => { if (active) setError(e instanceof ApiError ? e.message : 'Fotos konnten nicht geladen werden.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; onBusyChange(false); };
   }, [plant.id, onBusyChange]);
   const confirm = async (candidate: SpeciesCandidate) => {
     const { plant: latest } = await get<{ plant: Plant }>(`/api/plants/${plant.id}`);
-    await send(`/api/plants/${plant.id}`, { ...latest, scientific_name: candidate.scientific_name, common_name: candidate.common_names?.[0] || latest.common_name }, 'PUT');
+    const { wikipedia_url: _override, ...input } = latest;
+    await send(`/api/plants/${plant.id}`, { ...input, scientific_name: candidate.scientific_name, common_name: candidate.common_names?.[0] || latest.common_name }, 'PUT');
     onChanged();
   };
   const identification = useIdentification({ plantID: plant.id, available, offline, disabled: uploading || disabled, onConfirm: confirm, onBusyChange: busyChange });
   const busy = uploading || identification.busy || disabled;
+  const galleryPhotos = [...photos].sort((a, b) => Number(b.id === plant.cover_photo_id) - Number(a.id === plant.cover_photo_id));
   useEffect(() => {
     if (!identification.source) { lastTrigger.current?.focus(); return; }
     review.current?.focus();
@@ -57,15 +60,16 @@ export function PlantPhotos({ plant, available, offline, disabled = false, onCha
         <input hidden type="file" accept={photoTypes} disabled={busy || offline} onChange={async e => {
           const file = e.target.files?.[0]; e.target.value = '';
           if (!file || pending.current) return;
-          pending.current = true; setUploading(true); setError('');
+          pending.current = true; setUploading(true); onBusyChange(true); setError('');
           try { await uploadPhoto(plant.id, file); await refresh(); onChanged(); }
           catch (e) { setError(e instanceof ApiError ? e.message : 'Das Foto konnte nicht hochgeladen werden.'); }
-          finally { pending.current = false; setUploading(false); }
+          finally { pending.current = false; setUploading(false); onBusyChange(false); }
         }}/>
       </label></div>
       {error && <p role="alert">{error}</p>}
-      <div className="photo-grid">{photos.map((photo, index) => <article key={photo.id} className="photo-card" aria-label={"Galeriefoto " + (index + 1)}>
-        <CachedImage src={photo.filename} alt={'Foto von ' + plant.name}/>
+      {loading && <p role="status" className="muted">Fotos werden geladen…</p>}
+      <div className="photo-grid">{galleryPhotos.map((photo, index) => <article key={photo.id} className={'photo-card' + (plant.cover_photo_id === photo.id ? ' is-cover' : '')} aria-label={"Galeriefoto " + (index + 1)}>
+        <CachedImage src={plant.cover_photo_id === photo.id ? photo.filename.replace('/thumb.jpg', '/original.jpg') : photo.filename} alt={'Foto von ' + plant.name}/>
         <div className="photo-actions">
           <button type="button" className="text-button" disabled={busy || offline || !available} onClick={event => { lastTrigger.current = event.currentTarget; void identification.start(photo.id); review.current?.focus(); review.current?.scrollIntoView({ block: 'nearest' }); }}>Pflanze auf diesem Foto bestimmen</button>
           <button type="button" className="text-button" disabled={busy || offline || plant.cover_photo_id === photo.id} onClick={async () => {
@@ -80,10 +84,10 @@ export function PlantPhotos({ plant, available, offline, disabled = false, onCha
         </div>
       </article>)}</div>
       {(identification.source || identification.unavailable) && <section aria-label="Pflanzenbestimmung" ref={review} tabIndex={-1} className="identification-source">
-        {identification.source && <p className="muted">Bestimmung anhand von Galeriefoto {photos.findIndex(photo => photo.id === identification.source) + 1}</p>}
+        {identification.source && <p className="muted">Bestimmung anhand von Galeriefoto {galleryPhotos.findIndex(photo => photo.id === identification.source) + 1}</p>}
         <IdentificationReview controller={identification}/>
       </section>}
-      {photos.length === 0 && <p className="muted">Füge ein Foto hinzu, um deine Pflanze auf einen Blick zu erkennen.</p>}
+      {!loading && !error && photos.length === 0 && <p className="muted">Füge ein Foto hinzu, um deine Pflanze auf einen Blick zu erkennen.</p>}
     </section>
   </>;
 }

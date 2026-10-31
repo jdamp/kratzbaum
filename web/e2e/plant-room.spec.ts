@@ -64,7 +64,7 @@ test('idle room buttons have no loading cursor and service-worker saves allow an
   await expect(add).toBeEnabled();
 });
 
-test.describe('direct plant assignment', () => {
+test.describe('plant assignment through Bearbeiten', () => {
   test.use({ serviceWorkers: 'block' });
 
   test('room creation shows a waiting cursor only until the server confirms', async ({ page }) => {
@@ -97,12 +97,13 @@ test.describe('direct plant assignment', () => {
     });
     await page.setViewportSize({ width: 320, height: 900 });
     await page.goto(`/plants/${saved.id}`);
-    const form = page.getByRole('form', { name: "Raum der Pflanze", exact: true });
-    const select = form.getByRole('combobox', { name: "Raum", exact: true });
-    const save = form.getByRole('button', { name: "Raum speichern", exact: true });
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+    const form = page.getByRole('dialog', { name: 'Pflanze bearbeiten', exact: true });
+    const select = form.getByRole('combobox', { name: "Raum · optional", exact: true });
+    const save = form.getByRole('button', { name: "Änderungen speichern", exact: true });
     await expect(select).toHaveValue('');
-    await expect(page.getByRole('button', { name: "Pflanze auf diesem Foto bestimmen", exact: true })).toBeEnabled();
-    await expect(save).toBeDisabled();
+    await expect(page.locator('.photo-actions button').filter({ hasText: 'Pflanze auf diesem Foto bestimmen' })).toBeDisabled();
+    await expect(save).toBeEnabled();
     // An unrelated edit after opening detail must be preserved by the room-only intent.
     const latest = await detail(request, saved.id);
     expect((await request.put(`/api/plants/${saved.id}`, { data: { ...latest.plant, notes: 'Updated from another tab' } })).ok()).toBe(true);
@@ -121,20 +122,23 @@ test.describe('direct plant assignment', () => {
     await save.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
     await writeStarted.wait;
     await expect(form).toHaveAttribute('aria-busy', 'true');
-    await expect(form.getByRole('button', { name: "Raum wird gespeichert…", exact: true })).toHaveCSS('cursor', 'wait');
+    await expect(form.getByRole('button', { name: "Pflanze wird gespeichert…", exact: true })).toHaveCSS('cursor', 'wait');
     await expect(select).toBeDisabled();
-    await expect(page.getByRole('button', { name: "Pflanze auf diesem Foto bestimmen", exact: true })).toBeDisabled();
-    await expect(page.getByRole('button', { name: "Pflanze und Pflegeplan bearbeiten" })).toBeDisabled();
+    await expect(page.locator('.photo-actions button').filter({ hasText: 'Pflanze auf diesem Foto bestimmen' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: "Bearbeiten", exact: true })).toBeDisabled();
     writeGate.release();
-    await expect(form.getByRole('status')).toHaveText("Raumzuordnung gespeichert.");
-    await expect(save).toBeDisabled();
+    await expect(form).toHaveCount(0);
     expect(puts).toBe(1);
-    await expect(page.getByRole('button', { name: "Pflanze auf diesem Foto bestimmen", exact: true })).toBeEnabled();
-    await expect(page.getByText(`Raum: ${office.name}`, { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Fotos' }).click();
+    await expect(page.getByRole('button', { name: 'Pflanze auf diesem Foto bestimmen', exact: true })).toBeEnabled();
+    await page.getByRole('tab', { name: 'Übersicht' }).click();
+    await expect(page.locator('.identity-room').filter({ hasText: office.name })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     for (const control of [select, save]) {
       const box = (await control.boundingBox())!; expect(box.height).toBeGreaterThanOrEqual(44); expect(box.width).toBeGreaterThanOrEqual(44);
     }
+    await form.getByRole('button', { name: 'Abbrechen', exact: true }).click();
     await page.screenshot({ path: '/tmp/kratzbaum-plant-room-phone.png', fullPage: true });
     await nav(page, 'Heute').click();
     await page.getByLabel("Nach Raum filtern").selectOption(office.id);
@@ -146,13 +150,15 @@ test.describe('direct plant assignment', () => {
     await expect(page.getByLabel("Nach Raum filtern")).toHaveValue(office.id);
     await expect(page.locator('.plant-card').filter({ hasText: saved.name })).toBeVisible();
     await page.locator('.plant-card').filter({ hasText: saved.name }).click();
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     await select.selectOption(living.id);
     await save.focus(); await page.keyboard.press('Enter');
-    await expect(page.getByText(`Raum: ${living.name}`, { exact: true })).toBeVisible();
+    await expect(page.locator('.identity-room').filter({ hasText: living.name })).toBeVisible();
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.screenshot({ path: '/tmp/kratzbaum-plant-room-desktop.png', fullPage: true });
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     await select.selectOption(''); await save.click();
-    await expect(page.getByText("Raum: Nicht zugeordnet", { exact: true })).toBeVisible();
+    await expect(page.locator('.identity-room').filter({ hasText: "Nicht zugeordnet" })).toBeVisible();
     const after = await detail(request, saved.id);
     const { room_id: ignoredBefore, updated_at: ignoredBeforeTime, ...prior } = before.plant;
     const { room_id: ignoredAfter, updated_at: ignoredAfterTime, ...next } = after.plant;
@@ -169,8 +175,9 @@ test.describe('direct plant assignment', () => {
   test('retains selection on read/write failures, rejects deleted rooms, and disables offline', async ({ page, request, context }) => {
     const office = await room(request, 'failure'), saved = await plant(request);
     await page.goto(`/plants/${saved.id}`);
-    const form = page.getByRole('form', { name: "Raum der Pflanze", exact: true });
-    const select = form.getByRole('combobox', { name: "Raum", exact: true }), save = form.getByRole('button', { name: "Raum speichern", exact: true });
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+    const form = page.getByRole('dialog', { name: 'Pflanze bearbeiten', exact: true });
+    const select = form.getByRole('combobox', { name: "Raum · optional", exact: true }), save = form.getByRole('button', { name: "Änderungen speichern", exact: true });
     await expect(select).toBeEnabled();
     await select.selectOption(office.id);
     let puts = 0, reads = 0;
@@ -188,9 +195,10 @@ test.describe('direct plant assignment', () => {
     await expect(select).toHaveValue(office.id); await expect(save).toBeEnabled();
     await save.click();
     await expect(form.getByRole('alert')).toHaveText('Die Anfrage ist fehlgeschlagen (500). Bitte versuche es erneut.');
-    await expect(select).toHaveValue(office.id); await expect(page.getByText("Raum: Nicht zugeordnet", { exact: true })).toBeVisible();
+    await expect(select).toHaveValue(office.id); await expect(page.locator('.identity-room').filter({ hasText: "Nicht zugeordnet" })).toBeVisible();
     await save.click();
-    await expect(form.getByRole('status')).toHaveText("Raumzuordnung gespeichert.");
+    await expect(form).toHaveCount(0);
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     const deleted = await room(request, 'deleted');
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await expect(select.locator(`option[value="${deleted.id}"]`)).toHaveCount(1);
@@ -198,7 +206,7 @@ test.describe('direct plant assignment', () => {
     await select.selectOption(deleted.id); await save.click();
     await expect(form.getByRole('alert')).toContainText("gibt es nicht mehr");
     await expect(select).toHaveValue(deleted.id);
-    await expect(page.getByText(`Raum: ${office.name}`, { exact: true })).toBeVisible();
+    await expect(page.locator('.identity-room').filter({ hasText: office.name })).toBeVisible();
     await context.setOffline(true);
     await expect(select).toBeDisabled(); await expect(save).toBeDisabled(); await expect(save).toHaveCSS('cursor', 'not-allowed');
     await context.setOffline(false);
@@ -210,27 +218,33 @@ test.describe('direct plant assignment', () => {
     await request.put(`/api/plants/${saved.id}`, { data: { ...initial.plant, room_id: office.id } });
     await page.route('**/api/rooms', route => route.fulfill({ status: 500, json: { error: 'Rooms unavailable' } }));
     await page.goto(`/plants/${saved.id}`);
-    const form = page.getByRole('form', { name: "Raum der Pflanze", exact: true });
-    await expect(form.getByRole('combobox', { name: "Raum", exact: true })).toHaveValue(office.id);
-    await expect(form.getByRole('combobox', { name: "Raum", exact: true })).toBeDisabled();
-    await expect(form.getByRole('button', { name: "Raum speichern", exact: true })).toBeDisabled();
-    await expect(page.getByText("Raum: Rauminformationen nicht verfügbar", { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+    const form = page.getByRole('dialog', { name: 'Pflanze bearbeiten', exact: true });
+    await expect(form.getByRole('combobox', { name: "Raum · optional", exact: true })).toHaveValue(office.id);
+    await expect(form.getByRole('combobox', { name: "Raum · optional", exact: true })).toBeDisabled();
+    await expect(form.getByRole('button', { name: "Änderungen speichern", exact: true })).toBeEnabled();
+    await form.getByRole('textbox', { name: 'Pflanzennotizen', exact: true }).fill('Room information still unavailable');
+    await form.getByRole('button', { name: 'Änderungen speichern' }).click();
+    await expect(form).toHaveCount(0);
+    expect((await detail(request, saved.id)).plant.room_id).toBe(office.id);
+    await expect(page.locator('.identity-room').filter({ hasText: "Rauminformationen nicht verfügbar" })).toBeVisible();
   });
 
   test('leaving during the latest-plant read cancels the assignment write', async ({ page, request }) => {
     const office = await room(request, 'cancel'), saved = await plant(request);
     await page.goto(`/plants/${saved.id}`);
-    const form = page.getByRole('form', { name: "Raum der Pflanze", exact: true });
-    await expect(form.getByRole('combobox', { name: "Raum", exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+    const form = page.getByRole('dialog', { name: 'Pflanze bearbeiten', exact: true });
+    await expect(form.getByRole('combobox', { name: "Raum · optional", exact: true })).toBeEnabled();
     const blocked = gate(), started = gate(); let puts = 0;
     await page.route(`**/api/plants/${saved.id}`, async route => {
       if (route.request().method() === 'PUT') { puts++; await route.continue(); return; }
       started.release(); await blocked.wait; await route.continue();
     });
-    await form.getByRole('combobox', { name: "Raum", exact: true }).selectOption(office.id);
-    await form.getByRole('button', { name: "Raum speichern", exact: true }).click();
+    await form.getByRole('combobox', { name: "Raum · optional", exact: true }).selectOption(office.id);
+    await form.getByRole('button', { name: "Änderungen speichern", exact: true }).click();
     await started.wait;
-    await nav(page, 'Räume').click();
+    await nav(page, 'Räume').evaluate(button => (button as HTMLButtonElement).click());
     const response = page.waitForResponse(r => r.url().endsWith(`/api/plants/${saved.id}`));
     blocked.release(); await response;
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -242,21 +256,24 @@ test.describe('direct plant assignment', () => {
   test('a delayed assignment response does not replace another detail or restore lost access', async ({ page, request }) => {
     const office = await room(request, 'delayed'), saved = await plant(request), other = await plant(request, 'other');
     await page.goto(`/plants/${saved.id}`);
-    const form = page.getByRole('form', { name: "Raum der Pflanze", exact: true });
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+    const form = page.getByRole('dialog', { name: 'Pflanze bearbeiten', exact: true });
     const blocked = gate(), started = gate();
     await page.route(`**/api/plants/${saved.id}`, async route => {
       if (route.request().method() !== 'PUT') { await route.continue(); return; }
       const response = await route.fetch(); started.release(); await blocked.wait; await route.fulfill({ response });
     });
-    await form.getByRole('combobox', { name: "Raum", exact: true }).selectOption(office.id);
-    await form.getByRole('button', { name: "Raum speichern", exact: true }).click();
+    await form.getByRole('combobox', { name: "Raum · optional", exact: true }).selectOption(office.id);
+    await form.getByRole('button', { name: "Änderungen speichern", exact: true }).click();
     await started.wait;
-    await nav(page, 'Pflanzen').click();
+    await nav(page, 'Pflanzen').evaluate(button => (button as HTMLButtonElement).click());
     await page.locator('.plant-card').filter({ hasText: other.name }).click();
     blocked.release();
     await expect(page.getByRole('heading', { name: other.name, exact: true })).toBeVisible();
-    await expect(page.getByRole('form', { name: "Raum der Pflanze", exact: true }).getByRole('combobox', { name: "Raum", exact: true })).toHaveValue('');
-    await expect(page.getByRole('button', { name: "Pflanze und Pflegeplan bearbeiten" })).toBeEnabled();
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+    await expect(form.getByRole('combobox', { name: 'Raum · optional', exact: true })).toHaveValue('');
+    await form.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+    await expect(page.getByRole('button', { name: "Bearbeiten", exact: true })).toBeEnabled();
     // A second delayed save loses collection access before its response is delivered.
     await nav(page, 'Pflanzen').click(); await page.locator('.plant-card').filter({ hasText: saved.name }).click();
     const lost = gate(), committed = gate();
@@ -265,13 +282,14 @@ test.describe('direct plant assignment', () => {
       if (route.request().method() !== 'PUT') { await route.continue(); return; }
       const response = await route.fetch(); committed.release(); await lost.wait; await route.fulfill({ response });
     });
-    await form.getByRole('combobox', { name: "Raum", exact: true }).selectOption('');
-    await form.getByRole('button', { name: "Raum speichern", exact: true }).click();
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+    await form.getByRole('combobox', { name: "Raum · optional", exact: true }).selectOption('');
+    await form.getByRole('button', { name: "Änderungen speichern", exact: true }).click();
     await committed.wait;
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('kratzbaum:access-denied')));
     lost.release();
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole('form', { name: "Raum der Pflanze", exact: true })).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Pflanze bearbeiten', exact: true })).toHaveCount(0);
     await expect(page.getByText(saved.name, { exact: true })).toHaveCount(0);
   });
 });

@@ -320,7 +320,7 @@ func runRepositoryContract(t *testing.T, cfg config.Config) {
 	}
 
 	runRoomContract(t, store)
-	plant := Plant{Name: "Fern", ScientificName: "Nephrolepis exaltata", CommonName: "Sword fern", CareStartDate: "2026-01-01", WateringIntervalDays: 8, SummerFertilizingIntervalDays: intPointer(18), WinterFertilizingIntervalDays: intPointer(42), WinterFertilizingPaused: true}
+	plant := Plant{WikipediaURL: "https://de.wikipedia.org/wiki/Schwertfarne", Name: "Fern", ScientificName: "Nephrolepis exaltata", CommonName: "Sword fern", CareStartDate: "2026-01-01", WateringIntervalDays: 8, SummerFertilizingIntervalDays: intPointer(18), WinterFertilizingIntervalDays: intPointer(42), WinterFertilizingPaused: true}
 	if err := store.SavePlant(ctx, plant); err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +336,7 @@ func runRepositoryContract(t *testing.T, cfg config.Config) {
 	if err := store.SavePlant(ctx, plants[0]); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := store.GetPlant(ctx, plantID); err != nil || got.Name != "Updated fern" || got.CreatedAt.IsZero() || got.UpdatedAt.IsZero() {
+	if got, err := store.GetPlant(ctx, plantID); err != nil || got.Name != "Updated fern" || got.WikipediaURL != plant.WikipediaURL || got.CreatedAt.IsZero() || got.UpdatedAt.IsZero() {
 		t.Fatalf("plant update/timestamps: %#v %v", got, err)
 	}
 
@@ -416,7 +416,7 @@ func runRepositoryContract(t *testing.T, cfg config.Config) {
 	}
 	defer store.Close()
 	persisted, err := store.ListPlants(ctx, "updated fern")
-	if err != nil || len(persisted) != 1 || persisted[0].ID != plantID {
+	if err != nil || len(persisted) != 1 || persisted[0].ID != plantID || persisted[0].WikipediaURL != plant.WikipediaURL {
 		t.Fatalf("plant did not survive restart: %v %#v", err, persisted)
 	}
 	activities, err = store.ListActivities(ctx, plantID)

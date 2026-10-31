@@ -1,6 +1,7 @@
 export type ActivityType = 'watering' | 'fertilizing' | 'photo' | 'note';
 
 export interface Plant {
+  wikipedia_url?: string;
   id: string;
   room_id?: string | null;
   name: string;
@@ -89,6 +90,7 @@ export interface Bootstrap {
 }
 
 export interface PlantInput {
+  wikipedia_url?: string;
   name: string;
   scientific_name: string;
   common_name: string;

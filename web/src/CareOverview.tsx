@@ -20,23 +20,24 @@ export function CareRow({ item, onRecord, onOpen, disabled }: { item: CareItem; 
   </div>;
 }
 
-export function CareEntryDialog({ plant, type, offline, record, onClose, timeZone }: { plant: Plant; type: 'watering' | 'fertilizing'; offline: boolean; record: RecordCare; onClose: () => void; timeZone: string }) {
+export function CareEntryDialog({ plant, type, offline, record, onClose, timeZone, returnFocus }: { plant: Plant; type: 'watering' | 'fertilizing'; offline: boolean; record: RecordCare; onClose: () => void; timeZone: string; returnFocus?: HTMLElement | null }) {
   const [date, setDate] = useState(() => dateTimeInput(new Date(), timeZone));
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef(false);
   const dialog = useRef<HTMLElement>(null);
   useEffect(() => {
-    const launcher = document.activeElement as HTMLElement | null;
+    const launcher = returnFocus ?? document.activeElement as HTMLElement | null;
     dialog.current?.focus();
-    return () => { if (launcher?.isConnected) launcher.focus(); };
+    return () => { requestAnimationFrame(() => { if (!dialog.current?.isConnected && launcher?.isConnected) launcher.focus(); }); };
   }, []);
   const close = () => { if (!pending.current) onClose(); };
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) close(); }}>
     <section ref={dialog} className="modal care-entry-dialog" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="care-entry-title" aria-busy={busy} onKeyDown={e => {
       if (e.key === 'Escape') { e.preventDefault(); close(); }
       if (e.key === 'Tab') {
-        const controls = Array.from(dialog.current!.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled)'));
+        const controls = Array.from(dialog.current!.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),textarea:not(:disabled)'));
         const first = controls[0], last = controls[controls.length - 1];
         if (!first) { e.preventDefault(); return; }
         if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last.focus(); }
@@ -52,13 +53,16 @@ export function CareEntryDialog({ plant, type, offline, record, onClose, timeZon
         if (pending.current || offline) return;
         pending.current = true; setBusy(true); setError('');
         try {
-          if (await record(plant, type, '', inputToInstant(date, timeZone))) onClose();
+          if (await record(plant, type, note, inputToInstant(date, timeZone))) onClose();
           else setError('Die Pflege wurde nicht bestätigt. Das Datum bleibt erhalten; prüfe die Verbindung und versuche es erneut.');
         } catch (e) { setError(e instanceof InvalidDateTimeError ? e.message : 'Das Datum ist ungültig.'); }
         finally { pending.current = false; setBusy(false); }
       }}>
         <label>{type === 'watering' ? 'Gegossen am' : 'Gedüngt am'}<input type="datetime-local" required value={date} onChange={e => setDate(e.target.value)} disabled={busy} aria-label={type === 'watering' ? 'Datum und Uhrzeit des Gießens' : 'Datum und Uhrzeit des Düngens'}/></label>
-        <div className="modal-actions"><button type="button" className="secondary" disabled={busy} onClick={close}>Abbrechen</button><button className="primary" disabled={busy || offline}>{busy ? 'Wird gespeichert…' : 'Pflege speichern'}</button></div>
+        <p className="muted">Datum und Uhrzeit lassen sich ändern.</p>
+        <label>Notiz · optional<textarea value={note} onChange={event => setNote(event.target.value)} maxLength={10000} disabled={busy} rows={3} placeholder="Zum Beispiel: Erde war sehr trocken."/></label>
+        <p className="muted">Der nächste Pflegetermin wird nach dem Speichern neu berechnet.</p>
+        <div className="modal-actions"><button type="button" className="secondary" disabled={busy} onClick={close}>Abbrechen</button><button className="primary" aria-busy={busy} disabled={busy || offline}>{busy ? 'Wird gespeichert…' : 'Pflege speichern'}</button></div>
         {busy && <p role="status">Pflege wird gespeichert…</p>}
       </form>
     </section>

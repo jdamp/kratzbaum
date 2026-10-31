@@ -14,6 +14,7 @@ type plantInput struct {
 	storage.Plant
 	CareStart *string         `json:"care_start_date"`
 	Room      json.RawMessage `json:"room_id"`
+	Wikipedia *string         `json:"wikipedia_url"`
 }
 
 func decodePlant(w http.ResponseWriter, r *http.Request, previous *storage.Plant) (storage.Plant, bool) {
@@ -22,6 +23,16 @@ func decodePlant(w http.ResponseWriter, r *http.Request, previous *storage.Plant
 		return storage.Plant{}, false
 	}
 	p := input.Plant
+	if input.Wikipedia != nil {
+		value, err := normalizeWikipediaURL(*input.Wikipedia)
+		if err != nil {
+			fail(w, 400, err.Error())
+			return p, false
+		}
+		p.WikipediaURL = value
+	} else if previous != nil {
+		p.WikipediaURL = previous.WikipediaURL
+	}
 	if input.CareStart != nil {
 		p.CareStartDate = *input.CareStart
 	} else if previous != nil {

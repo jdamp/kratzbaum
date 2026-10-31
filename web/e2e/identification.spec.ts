@@ -37,12 +37,13 @@ async function draft(page: Page) {
 
 async function savedPlant(page: Page, withPhoto = true) {
   const response = await page.request.post('/api/plants', { data: {
-    name: `Saved plant ${Date.now()}`, scientific_name: 'Original species', common_name: 'Original common name', family: 'Araceae', notes: 'Existing notes', care_start_date: '2026-01-01', watering_interval_days: 9,
+    name: `Saved plant ${Date.now()}`, scientific_name: 'Original species', common_name: 'Original common name', family: 'Araceae', notes: 'Existing notes', care_start_date: '2026-01-01', watering_interval_days: 9, wikipedia_url: 'https://de.wikipedia.org/wiki/Schwertfarne',
   } });
   const plant = await response.json(); created.add(plant.id);
   if (withPhoto) await page.request.post(`/api/plants/${plant.id}/photos`, { multipart: { image: { name: 'plant.jpg', mimeType: 'image/jpeg', buffer: readFileSync('/tmp/plant.jpg') } } });
   await page.goto(`/plants/${plant.id}`);
   await expect(page.getByRole('heading', { name: plant.name })).toBeVisible();
+  await page.getByRole('tab', { name: 'Fotos' }).click();
   return plant;
 }
 
@@ -171,6 +172,7 @@ test('uses saved gallery photos without attaching another photo and retries only
   const after = await (await page.request.get(`/api/plants/${plant.id}`)).json();
   expect(after.plant.notes).toBe('Latest notes'); expect(after.plant.watering_interval_days).toBe(12);
   expect(after.plant.family).toBe('Araceae'); expect(after.plant.cover_photo_id).toBe(before.plant.cover_photo_id);
+  expect(after.plant.wikipedia_url).toBe(before.plant.wikipedia_url);
   expect(after.activities).toEqual(before.activities);
   expect(calls).toBe(1); expect(saves).toBe(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -188,6 +190,11 @@ test('gallery actions prevent duplicates and ignore pending suggestions after na
   await expect(page.getByRole('button', { name: "Foto löschen" })).toBeDisabled();
   await expect(page.locator('.gallery .section-title input')).toBeDisabled();
   await expect.poll(() => calls).toBe(1);
+  await page.getByRole('tab', { name: 'Übersicht' }).click();
+  await expect(page.getByRole('button', { name: 'Bearbeiten', exact: true })).toBeDisabled();
+  await page.getByRole('tab', { name: 'Fotos' }).click();
+  await expect(page.getByRole('status')).toHaveText('Pflanze wird bestimmt…');
+  expect(calls).toBe(1);
   await page.getByRole('button', { name: "Alle Pflanzen" }).click();
   await page.getByRole('button', { name: new RegExp(first.name) }).click();
   release();
@@ -247,6 +254,7 @@ test('gallery identification explains offline and missing configuration even wit
   await page.unroute('**/api/bootstrap');
   await page.route('**/api/bootstrap', async route => { const response = await route.fetch(); await route.fulfill({ response, json: { ...await response.json(), plantnet_available: false } }); });
   await page.reload();
+  await page.getByRole('tab', { name: 'Fotos' }).click();
   await expect(page.getByText(/Pflanzenbestimmung ist nicht eingerichtet/)).toBeVisible();
   await expect(page.getByRole('button', { name: "Pflanze auf diesem Foto bestimmen" })).toBeDisabled();
   await expect(page.locator('.gallery .section-title input')).toBeEnabled();
